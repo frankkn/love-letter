@@ -1,0 +1,269 @@
+:root {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: dark;
+  background-color: #1a1a1a;
+  color: #e0e0e0;
+}
+
+#app {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+h1 {
+  text-align: center;
+  color: #ff4d4d;
+  margin: 0;
+}
+
+.area {
+  background-color: #2a2a2a;
+  padding: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+h3 {
+  margin-top: 0;
+  border-bottom: 1px solid #444;
+  padding-bottom: 0.5rem;
+  color: #ffa502;
+}
+
+.hand-container, .discard-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-height: 140px;
+  margin-bottom: 10px;
+  justify-content: center;
+}
+
+.discard-container {
+  min-height: 100px;
+  background-color: #222;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+/* 卡牌樣式 */
+.card {
+  width: 100px;
+  height: 140px;
+  border-radius: 10px;
+  border: 2px solid #555;
+  background-color: #f1f2f6;
+  color: #2f3542;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 8px;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  user-select: none;
+  position: relative;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 15px rgba(255, 77, 77, 0.4);
+  border-color: #ff4d4d;
+}
+
+.card.ai-card {
+  background-color: #2f3542;
+  color: #f1f2f6;
+  cursor: default;
+  justify-content: center;
+  align-items: center;
+  font-size: 2rem;
+  border-color: #555;
+}
+
+.card.ai-card:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: #555;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+}
+
+.card-value {
+  background: #ff4d4d;
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.card-name {
+  font-size: 0.9rem;
+  text-align: center;
+  font-weight: bold;
+}
+
+.card-desc {
+  font-size: 0.65rem;
+  color: #57606f;
+  line-height: 1.2;
+}
+
+/* 遊戲日誌樣式 */
+.stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+#draw-btn {
+  padding: 8px 20px;
+  background-color: #ff4757;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+#draw-btn:disabled {
+  background-color: #747d8c;
+  cursor: not-allowed;
+}
+
+#restart-btn {
+  padding: 8px 20px;
+  background-color: #2ed573;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+#turn-indicator {
+  font-weight: bold;
+  color: #ffa502;
+  border: 1px solid #ffa502;
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+
+.log-container {
+  height: 100px;
+  overflow-y: auto;
+  background-color: #1e1e1e;
+  padding: 10px;
+  border-radius: 5px;
+  font-size: 0.85rem;
+  text-align: left;
+  border-left: 4px solid #ff4d4d;
+}
+
+.log-entry {
+  margin: 4px 0;
+  border-bottom: 1px solid #333;
+}
+
+/* Modal 樣式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
+}
+
+.modal-content {
+  background: #2a2a2a;
+  padding: 2rem;
+  border-radius: 15px;
+  border: 2px solid #ff4d4d;
+  max-width: 500px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 0 30px rgba(255, 77, 77, 0.3);
+}
+
+.guess-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.guess-btn {
+  padding: 10px;
+  background: #333;
+  border: 1px solid #555;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.guess-btn:hover {
+  background: #ff4d4d;
+  color: white;
+  transform: scale(1.05);
+}
+
+.modal-confirm-btn {
+  padding: 10px 30px;
+  background: #ff4d4d;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+/* 保護狀態視覺效果 */
+.protected {
+  position: relative;
+  box-shadow: 0 0 20px rgba(52, 152, 219, 0.6) !important;
+  border: 2px solid #3498db !important;
+  background-color: #1a2a3a !important;
+}
+
+.protected::after {
+  content: '🛡️ 保護中';
+  position: absolute;
+  top: -15px;
+  right: 10px;
+  background: #3498db;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+/* 讓 AI 區域也有個基本的 padding 方便看特效 */
+#ai-area, #player-area {
+  transition: all 0.5s ease;
+}
