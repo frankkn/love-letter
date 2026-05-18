@@ -522,7 +522,7 @@ async function botTurn(botId: number) {
 // 9. 選單邏輯
 function showScene(sceneId: 'main-menu' | 'mode-select' | 'bot-count-select' | 'game-scene') {
     [mainMenuEl, modeSelectEl, botCountSelectEl, gameSceneEl].forEach(el => el.style.display = 'none');
-    document.getElementById(sceneId)!.style.display = sceneId === 'game-scene' ? 'block' : 'flex';
+    document.getElementById(sceneId)!.style.display = 'flex';
 }
 
 document.getElementById('start-game-btn')!.onclick = () => showScene('mode-select');

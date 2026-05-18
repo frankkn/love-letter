@@ -42,27 +42,34 @@
 
       <!-- 遊戲場景 -->
       <div id="game-scene" style="display: none;">
-        <!-- 對手區域 (動態生成) -->
-        <div id="opponents-container"></div>
+        <!-- 左側/主戰區 -->
+        <div class="main-battle-area">
+          <!-- 對手區域 (動態生成) -->
+          <div id="opponents-container"></div>
 
-        <!-- 遊戲資訊與日誌 -->
-        <div id="game-info-area" class="area">
-          <div class="stats">
-            <div id="turn-indicator">當前回合：玩家</div>
-            <span id="deck-count">牌堆剩餘：0</span>
-            <button id="draw-btn">抽牌</button>
-            <button id="back-home-btn" class="menu-btn secondary" style="padding: 5px 15px;">回主選單</button>
-          </div>
-          <div id="game-log" class="log-container">
-            <p>[系統] 遊戲準備就緒</p>
+          <!-- 玩家區域 -->
+          <div id="player-area" class="area">
+            <h3>玩家狀態</h3>
+            <div id="player-hand" class="hand-container"></div>
+            <div id="player-discard" class="discard-container"></div>
           </div>
         </div>
 
-        <!-- 玩家區域 -->
-        <div id="player-area" class="area">
-          <h3>玩家狀態</h3>
-          <div id="player-hand" class="hand-container"></div>
-          <div id="player-discard" class="discard-container"></div>
+        <!-- 右側/日誌區 (側邊欄) -->
+        <div class="sidebar-area">
+          <div id="game-info-area" class="area">
+            <div class="stats">
+              <div class="stats-row">
+                <div id="turn-indicator">當前回合：玩家</div>
+                <span id="deck-count">牌堆剩餘：0</span>
+              </div>
+              <button id="draw-btn">抽牌</button>
+              <button id="back-home-btn" class="menu-btn secondary" style="padding: 5px 15px; width: 100%;">回主選單</button>
+            </div>
+            <div id="game-log" class="log-container">
+              <p>[系統] 遊戲準備就緒</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
