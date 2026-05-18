@@ -328,7 +328,7 @@ async function endTurn(playerId: number) {
     }
 }
 
-async function applyEffect(playerId: number, card: Card) {
+async function applyEffect(playerId: number, card: Card, shouldEndTurn = true) {
     const player = state.players[playerId];
 
     if (card.type === CardType.Princess) {
@@ -344,14 +344,15 @@ async function applyEffect(playerId: number, card: Card) {
 
         if (allPotentialTargets.length === 0) {
             addLog("沒有合法的目標，效果失效。");
-            await endTurn(playerId);
+            if (shouldEndTurn) await endTurn(playerId);
+            else render();
             return;
         }
 
         if (player.isBot) {
             const target = allPotentialTargets[Math.floor(Math.random() * allPotentialTargets.length)];
             await sleep(1000); // 模擬選標準備
-            await resolveTargetEffect(playerId, target.id, card);
+            await resolveTargetEffect(playerId, target.id, card, shouldEndTurn);
         } else {
             let buttonsHTML = '<div class="target-list">';
             allPotentialTargets.forEach(t => {
@@ -365,7 +366,7 @@ async function applyEffect(playerId: number, card: Card) {
                 (btn as HTMLElement).onclick = async () => {
                     const targetId = parseInt((btn as HTMLElement).dataset.id!);
                     closeModal();
-                    await resolveTargetEffect(playerId, targetId, card);
+                    await resolveTargetEffect(playerId, targetId, card, shouldEndTurn);
                 };
             });
         }
@@ -374,11 +375,12 @@ async function applyEffect(playerId: number, card: Card) {
             player.isProtected = true;
             addLog(`${player.name} 獲得了侍女的保護。`);
         }
-        await endTurn(playerId);
+        if (shouldEndTurn) await endTurn(playerId);
+        else render();
     }
 }
 
-async function resolveTargetEffect(actorId: number, targetId: number, card: Card) {
+async function resolveTargetEffect(actorId: number, targetId: number, card: Card, shouldEndTurn = true) {
     const actor = state.players[actorId];
     const target = state.players[targetId];
 
@@ -408,7 +410,8 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
                             eliminate(targetId, "被衛兵猜中手牌");
                         } else {
                             addLog("猜錯了。");
-                            await endTurn(actorId);
+                            if (shouldEndTurn) await endTurn(actorId);
+                            else render();
                         }
                     };
                 });
@@ -421,7 +424,8 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
                     eliminate(targetId, "被衛兵猜中手牌");
                 } else {
                     addLog("猜錯了。");
-                    await endTurn(actorId);
+                    if (shouldEndTurn) await endTurn(actorId);
+                    else render();
                 }
             }
             break;
@@ -433,18 +437,20 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
                 showModal(`神父：看見 ${target.name} 的手牌`, cardUI.outerHTML, `<button class="modal-confirm-btn" id="modal-ok-btn">我了解了</button>`);
                 document.getElementById('modal-ok-btn')!.onclick = async () => {
                     closeModal();
-                    await endTurn(actorId);
+                    if (shouldEndTurn) await endTurn(actorId);
+                    else render();
                 };
             } else {
                 addLog(`${actor.name} 看了一下 ${target.name} 的手牌。`);
-                await endTurn(actorId);
+                if (shouldEndTurn) await endTurn(actorId);
+                else render();
             }
             break;
 
         case CardType.Baron:
             addLog(`${actor.name} 與 ${target.name} 秘密比大小！`);
             await sleep(1000);
-            const aVal = actor.hand[0].value;
+            const aVal = actor.hand[0]?.value ?? card.value;
             const tVal = target.hand[0].value;
             if (aVal > tVal) {
                 eliminate(targetId, "男爵比輸了");
@@ -452,15 +458,17 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
                 eliminate(actorId, "男爵比輸了");
             } else {
                 addLog("點數相同，平安無事。");
-                await endTurn(actorId);
+                if (shouldEndTurn) await endTurn(actorId);
+                else render();
             }
             break;
 
         case CardType.Prince:
             addLog(`${actor.name} 強迫 ${target.name} 棄牌！`);
             await sleep(500);
-            discardAndDraw(targetId);
-            await endTurn(actorId);
+            await discardAndDraw(targetId);
+            if (shouldEndTurn) await endTurn(actorId);
+            else render();
             break;
 
         case CardType.King:
@@ -469,7 +477,8 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
             const temp = actor.hand;
             actor.hand = target.hand;
             target.hand = temp;
-            await endTurn(actorId);
+            if (shouldEndTurn) await endTurn(actorId);
+            else render();
             break;
     }
 }
@@ -490,7 +499,7 @@ function getAISmartGuess(botId: number): number {
     return possibleGuesses.length > 0 ? possibleGuesses[Math.floor(Math.random() * possibleGuesses.length)] : 2;
 }
 
-function discardAndDraw(targetId: number) {
+async function discardAndDraw(targetId: number) {
     const player = state.players[targetId];
     if (player.hand.length === 0) return;
     const discarded = player.hand.pop()!;
@@ -499,16 +508,20 @@ function discardAndDraw(targetId: number) {
 
     if (discarded.type === CardType.Princess) {
         eliminate(targetId, "棄掉了公主");
-    } else {
-        if (state.deck.length > 0) {
-            const newCard = state.deck.pop()!;
-            player.hand.push(newCard);
-        } else if (state.burnedCard) {
-            player.hand.push(state.burnedCard);
-            state.burnedCard = null;
-        }
-        render();
+        return;
     }
+
+    await applyEffect(targetId, discarded, false);
+    if (state.isGameOver || !player.isAlive) return;
+
+    if (state.deck.length > 0) {
+        const newCard = state.deck.pop()!;
+        player.hand.push(newCard);
+    } else if (state.burnedCard) {
+        player.hand.push(state.burnedCard);
+        state.burnedCard = null;
+    }
+    render();
 }
 
 function eliminate(playerId: number, reason: string) {
