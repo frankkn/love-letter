@@ -18,6 +18,8 @@ export interface Card {
     readonly name: string;
     readonly value: number;
     readonly description: string;
+    targetName?: string;
+    guessedCardName?: string;
 }
 
 export interface Player {
@@ -216,12 +218,16 @@ function createCardUI(card: Card, isPlayable: boolean): HTMLElement {
     const div = document.createElement('div');
     div.className = 'card';
     if (!isPlayable) div.style.cursor = 'default';
+    const playNote = card.targetName && card.guessedCardName
+        ? `<div class="card-play-note">🎯 對 ${card.targetName} 猜: ${card.guessedCardName}</div>`
+        : '';
     div.innerHTML = `
         <div class="card-header">
             <span class="card-name">${card.name}</span>
             <div class="card-value">${card.value}</div>
         </div>
         <div class="card-desc">${card.description}</div>
+        ${playNote}
     `;
     return div;
 }
@@ -239,6 +245,14 @@ function closeModal() {
 }
 
 // 7. 核心遊戲邏輯
+function recordGuardGuess(actor: Player, target: Player, guessedType: CardType) {
+    const playedGuard = [...actor.discardPile].reverse().find(discarded => discarded.type === CardType.Guard);
+    if (!playedGuard) return;
+
+    playedGuard.targetName = target.name;
+    playedGuard.guessedCardName = CARD_DEFINITIONS[guessedType].name;
+}
+
 function addLog(msg: string) {
     state.logs.push(`[${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}] ${msg}`);
     render();
@@ -386,6 +400,7 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
                 btns.forEach(btn => {
                     (btn as HTMLElement).onclick = async () => {
                         const val = parseInt((btn as HTMLElement).dataset.value!);
+                        recordGuardGuess(actor, target, val as CardType);
                         closeModal();
                         addLog(`${actor.name} 對 ${target.name} 猜測 ${val}`);
                         if (target.hand[0].value === val) {
@@ -399,6 +414,7 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
                 });
             } else {
                 const guessNum = getAISmartGuess(actorId);
+                recordGuardGuess(actor, target, guessNum as CardType);
                 addLog(`${actor.name} 對 ${target.name} 猜測 ${guessNum} (${CARD_DEFINITIONS[guessNum as CardType].name})`);
                 if (target.hand[0].value === guessNum) {
                     addLog("猜中了！");

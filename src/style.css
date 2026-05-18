@@ -123,6 +123,16 @@ h3 {
   line-height: 1.2;
 }
 
+.card-play-note {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(47, 53, 66, 0.2);
+  color: #2f3542;
+  font-size: 0.62rem;
+  font-weight: bold;
+  line-height: 1.2;
+}
+
 /* 遊戲場景佈局 */
 #game-scene {
   display: flex;
