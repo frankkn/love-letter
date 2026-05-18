@@ -267,3 +267,152 @@ h3 {
 #ai-area, #player-area {
   transition: all 0.5s ease;
 }
+
+/* 選單樣式 */
+.menu-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  gap: 20px;
+}
+
+.menu-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.menu-btn {
+  padding: 12px 24px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  border-radius: 8px;
+  border: 2px solid #555;
+  background: #333;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.menu-btn:hover:not(:disabled) {
+  border-color: #ff4d4d;
+  background: #444;
+}
+
+.menu-btn.primary {
+  background: #ff4d4d;
+  border-color: #ff4d4d;
+}
+
+.menu-btn.primary:hover {
+  background: #ff6b6b;
+}
+
+.menu-btn.secondary {
+  background: #57606f;
+  border-color: #57606f;
+  font-size: 0.9rem;
+}
+
+.menu-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.count-buttons {
+  flex-direction: row;
+  justify-content: center;
+}
+
+.count-btn {
+  width: 80px;
+  height: 80px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  border-radius: 50%;
+  border: 3px solid #ff4d4d;
+  background: #2a2a2a;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.count-btn:hover {
+  background: #ff4d4d;
+  transform: scale(1.1);
+}
+
+/* 多對手佈局 */
+#opponents-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.opponent-area {
+  flex: 1;
+  min-width: 250px;
+  max-width: 400px;
+}
+
+.target-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.target-btn {
+  padding: 10px;
+  background: #333;
+  border: 1px solid #ff4d4d;
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.target-btn:hover {
+  background: #ff4d4d;
+}
+
+/* 淘汰視覺效果 */
+.eliminated {
+  opacity: 0.5;
+  filter: grayscale(1);
+}
+
+.eliminated::after {
+  content: '❌ 已出局';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-15deg);
+  background: rgba(255, 0, 0, 0.8);
+  color: white;
+  padding: 5px 20px;
+  border-radius: 5px;
+  font-size: 1.5rem;
+  font-weight: bold;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* 當前回合高亮 */
+.active-turn {
+  border: 2px solid #ffca28 !important;
+  box-shadow: 0 0 20px rgba(255, 202, 40, 0.6) !important;
+  animation: breathing 2s infinite ease-in-out;
+}
+
+@keyframes breathing {
+  0% { box-shadow: 0 0 5px rgba(255, 202, 40, 0.3); }
+  50% { box-shadow: 0 0 25px rgba(255, 202, 40, 0.8); }
+  100% { box-shadow: 0 0 5px rgba(255, 202, 40, 0.3); }
+}

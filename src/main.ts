@@ -20,22 +20,23 @@ export interface Card {
     readonly description: string;
 }
 
-export type PlayerType = 'player' | 'ai';
+export interface Player {
+    id: number;           // 0 為人類玩家，1~3 為電腦
+    name: string;         // "玩家", "電腦 A", "電腦 B", "電腦 C"
+    isBot: boolean;       // 是否為電腦
+    hand: Card[];         // 手牌 (1~2張)
+    isProtected: boolean; // 侍女保護狀態
+    isAlive: boolean;     // 是否還活著
+    discardPile: Card[];  // 已打出的牌堆
+}
 
 export interface GameState {
     deck: Card[];
     burnedCard: Card | null;
-    playerHand: Card[];
-    playerDiscard: Card[];
-    playerIsProtected: boolean;
-    playerIsAlive: boolean;
-    aiHand: Card[];
-    aiDiscard: Card[];
-    aiIsProtected: boolean;
-    aiIsAlive: boolean;
-    currentTurn: PlayerType;
+    players: Player[];
+    currentTurnPlayerId: number;
     isGameOver: boolean;
-    winner: string | null;
+    winner: Player | null;
     logs: string[];
 }
 
@@ -83,15 +84,16 @@ function shuffle<T>(array: T[]): T[] {
 let state: GameState;
 
 // 4. DOM 元素
-const aiAreaEl = document.getElementById('ai-area')!;
-const aiHandEl = document.getElementById('ai-hand')!;
-const aiDiscardEl = document.getElementById('ai-discard')!;
+const mainMenuEl = document.getElementById('main-menu')!;
+const modeSelectEl = document.getElementById('mode-select')!;
+const botCountSelectEl = document.getElementById('bot-count-select')!;
+const gameSceneEl = document.getElementById('game-scene')!;
+const opponentsContainerEl = document.getElementById('opponents-container')!;
 const playerAreaEl = document.getElementById('player-area')!;
 const playerHandEl = document.getElementById('player-hand')!;
 const playerDiscardEl = document.getElementById('player-discard')!;
 const deckCountEl = document.getElementById('deck-count')!;
 const drawBtn = document.getElementById('draw-btn') as HTMLButtonElement;
-const restartBtn = document.getElementById('restart-btn') as HTMLButtonElement;
 const gameLogEl = document.getElementById('game-log')!;
 const turnIndicatorEl = document.getElementById('turn-indicator')!;
 
@@ -101,42 +103,51 @@ const modalTitle = document.getElementById('modal-title')!;
 const modalBody = document.getElementById('modal-body')!;
 const modalFooter = document.getElementById('modal-footer')!;
 
-// 5. 渲染函式
+// 5. 輔助函式
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// 6. 渲染函式
 function render() {
     deckCountEl.textContent = `牌堆剩餘：${state.deck.length}`;
-    turnIndicatorEl.textContent = `當前回合：${state.currentTurn === 'player' ? '玩家' : 'AI'}`;
     
-    // AI 區域狀態
-    aiAreaEl.className = state.aiIsProtected ? 'area protected' : 'area';
-    // 玩家區域狀態
-    playerAreaEl.className = state.playerIsProtected ? 'area protected' : 'area';
-
-    // AI 手牌
-    aiHandEl.innerHTML = '';
-    state.aiHand.forEach(() => {
-        const cardDiv = document.createElement('div');
-        cardDiv.className = 'card ai-card';
-        cardDiv.textContent = '?';
-        aiHandEl.appendChild(cardDiv);
+    const currentPlayer = state.players[state.currentTurnPlayerId];
+    turnIndicatorEl.textContent = `當前回合：${currentPlayer.name}`;
+    
+    // 渲染對手區域
+    opponentsContainerEl.innerHTML = '';
+    state.players.slice(1).forEach(bot => {
+        const botArea = document.createElement('div');
+        const isActive = state.currentTurnPlayerId === bot.id;
+        botArea.className = `area opponent-area ${bot.isProtected ? 'protected' : ''} ${!bot.isAlive ? 'eliminated' : ''} ${isActive ? 'active-turn' : ''}`;
+        botArea.innerHTML = `
+            <h3>${bot.name}</h3>
+            <div class="hand-container">
+                ${bot.hand.map(() => '<div class="card ai-card">?</div>').join('')}
+            </div>
+            <div class="discard-container"></div>
+        `;
+        const discardContainer = botArea.querySelector('.discard-container')!;
+        bot.discardPile.forEach(card => discardContainer.appendChild(createCardUI(card, false)));
+        opponentsContainerEl.appendChild(botArea);
     });
 
-    // AI 棄牌
-    aiDiscardEl.innerHTML = '';
-    state.aiDiscard.forEach(card => aiDiscardEl.appendChild(createCardUI(card, false)));
-
-    // 玩家手牌
+    // 渲染玩家區域
+    const human = state.players[0];
+    const isHumanTurn = state.currentTurnPlayerId === 0;
+    playerAreaEl.className = `area ${human.isProtected ? 'protected' : ''} ${!human.isAlive ? 'eliminated' : ''} ${isHumanTurn ? 'active-turn' : ''}`;
+    
     playerHandEl.innerHTML = '';
-    state.playerHand.forEach(card => {
-        const cardUI = createCardUI(card, state.currentTurn === 'player' && state.playerHand.length === 2);
-        if (state.currentTurn === 'player' && state.playerHand.length === 2) {
-            cardUI.onclick = () => handlePlayCardRequest('player', card);
+    human.hand.forEach(card => {
+        const isPlayable = isHumanTurn && human.hand.length === 2 && !state.isGameOver;
+        const cardUI = createCardUI(card, isPlayable);
+        if (isPlayable) {
+            cardUI.onclick = () => handlePlayCardRequest(0, card);
         }
         playerHandEl.appendChild(cardUI);
     });
 
-    // 玩家棄牌
     playerDiscardEl.innerHTML = '';
-    state.playerDiscard.forEach(card => playerDiscardEl.appendChild(createCardUI(card, false)));
+    human.discardPile.forEach(card => playerDiscardEl.appendChild(createCardUI(card, false)));
 
     // 日誌
     gameLogEl.innerHTML = '';
@@ -148,8 +159,7 @@ function render() {
     });
 
     // 按鈕狀態
-    drawBtn.disabled = state.isGameOver || state.currentTurn !== 'player' || state.playerHand.length >= 2 || state.deck.length === 0;
-    restartBtn.style.display = state.isGameOver ? 'inline-block' : 'none';
+    drawBtn.disabled = state.isGameOver || !isHumanTurn || human.hand.length >= 2 || state.deck.length === 0;
 }
 
 function createCardUI(card: Card, isPlayable: boolean): HTMLElement {
@@ -166,7 +176,7 @@ function createCardUI(card: Card, isPlayable: boolean): HTMLElement {
     return div;
 }
 
-// 6. Modal 系統
+// Modal 系統
 function showModal(title: string, bodyHTML: string, footerHTML: string = '') {
     modalTitle.textContent = title;
     modalBody.innerHTML = bodyHTML;
@@ -184,16 +194,12 @@ function addLog(msg: string) {
     render();
 }
 
-function drawCard(target: PlayerType) {
+function drawCard(playerId: number) {
     if (state.deck.length === 0) return;
+    const player = state.players[playerId];
     const card = state.deck.pop()!;
-    if (target === 'player') {
-        state.playerHand.push(card);
-        addLog("玩家抽了一張牌。");
-    } else {
-        state.aiHand.push(card);
-        addLog("AI 抽了一張牌。");
-    }
+    player.hand.push(card);
+    addLog(`${player.name} 抽了一張牌。`);
     render();
 }
 
@@ -203,78 +209,118 @@ function checkCountessConstraint(hand: Card[]): boolean {
     return hasCountess && hasPrinceOrKing;
 }
 
-function handlePlayCardRequest(actor: PlayerType, card: Card) {
+function handlePlayCardRequest(playerId: number, card: Card) {
     if (state.isGameOver) return;
-    const hand = actor === 'player' ? state.playerHand : state.aiHand;
+    const player = state.players[playerId];
     
-    if (checkCountessConstraint(hand) && card.type !== CardType.Countess) {
-        if (actor === 'player') {
+    if (checkCountessConstraint(player.hand) && card.type !== CardType.Countess) {
+        if (!player.isBot) {
             showModal("提示", "<p>當手中持有王子或國王時，必須先打出伯爵夫人！</p>", `<button class="modal-confirm-btn" onclick="this.closest('.modal-overlay').style.display='none'">我知道了</button>`);
         }
         return;
     }
 
-    if (card.type === CardType.Princess && hand.length === 2) {
-        const other = hand.find(c => c.id !== card.id);
+    if (card.type === CardType.Princess && player.hand.length === 2) {
+        const other = player.hand.find(c => c.id !== card.id);
         if (other && other.type !== CardType.Princess) {
-           if (actor === 'player') {
+           if (!player.isBot) {
                showModal("提示", "<p>公主不能主動打出！</p>", `<button class="modal-confirm-btn" onclick="this.closest('.modal-overlay').style.display='none'">我知道了</button>`);
            }
            return;
         }
     }
 
-    executePlayCard(actor, card);
+    executePlayCard(playerId, card);
 }
 
-function executePlayCard(actor: PlayerType, card: Card) {
-    if (actor === 'player') {
-        state.playerHand = state.playerHand.filter(c => c.id !== card.id);
-        state.playerDiscard.push(card);
-        state.playerIsProtected = false;
-    } else {
-        state.aiHand = state.aiHand.filter(c => c.id !== card.id);
-        state.aiDiscard.push(card);
-        state.aiIsProtected = false;
-    }
+async function executePlayCard(playerId: number, card: Card) {
+    const player = state.players[playerId];
+    player.hand = player.hand.filter(c => c.id !== card.id);
+    player.discardPile.push(card);
+    player.isProtected = false;
 
-    addLog(`${actor === 'player' ? '玩家' : 'AI'} 打出了 ${card.name} (${card.value})`);
+    addLog(`${player.name} 打出了 ${card.name} (${card.value})`);
     
-    applyEffect(actor, card);
+    await applyEffect(playerId, card);
 }
 
-function endTurn(actor: PlayerType) {
-    if (!state.isGameOver) {
-        checkEndConditions();
-    }
+async function endTurn(playerId: number) {
+    if (state.isGameOver) return;
+    
+    checkEndConditions();
 
     if (!state.isGameOver) {
-        state.currentTurn = (actor === 'player') ? 'ai' : 'player';
+        let nextId = (playerId + 1) % state.players.length;
+        while (!state.players[nextId].isAlive) {
+            nextId = (nextId + 1) % state.players.length;
+        }
+        state.currentTurnPlayerId = nextId;
         render();
-        if (state.currentTurn === 'ai') {
-            setTimeout(aiTurn, 1000);
+
+        if (state.players[nextId].isBot) {
+            // 不需要外部 setTimeout，因為 botTurn 內部會等待
+            botTurn(nextId);
         }
     }
 }
 
-function applyEffect(actor: PlayerType, card: Card) {
-    const opponent: PlayerType = actor === 'player' ? 'ai' : 'player';
-    const isOpponentProtected = opponent === 'player' ? state.playerIsProtected : state.aiIsProtected;
+async function applyEffect(playerId: number, card: Card) {
+    const player = state.players[playerId];
 
     if (card.type === CardType.Princess) {
-        eliminate(actor, "打出或棄掉了公主");
+        eliminate(playerId, "打出或棄掉了公主");
         return;
     }
 
-    if (isOpponentProtected && [1, 2, 3, 5, 6].includes(card.value)) {
-        addLog(`因對方受侍女保護，${card.name} 的效果失效。`);
-        endTurn(actor);
-        return;
+    if ([1, 2, 3, 5, 6].includes(card.value)) {
+        let allPotentialTargets = state.players.filter(p => p.isAlive && !p.isProtected);
+        if (card.type !== CardType.Prince) {
+            allPotentialTargets = allPotentialTargets.filter(p => p.id !== playerId);
+        }
+
+        if (allPotentialTargets.length === 0) {
+            addLog("沒有合法的目標，效果失效。");
+            await endTurn(playerId);
+            return;
+        }
+
+        if (player.isBot) {
+            const target = allPotentialTargets[Math.floor(Math.random() * allPotentialTargets.length)];
+            await sleep(1000); // 模擬選標準備
+            await resolveTargetEffect(playerId, target.id, card);
+        } else {
+            let buttonsHTML = '<div class="target-list">';
+            allPotentialTargets.forEach(t => {
+                buttonsHTML += `<button class="target-btn" data-id="${t.id}">${t.name}</button>`;
+            });
+            buttonsHTML += '</div>';
+            showModal(`請選擇 ${card.name} 的目標`, buttonsHTML);
+            
+            const btns = modalBody.querySelectorAll('.target-btn');
+            btns.forEach(btn => {
+                (btn as HTMLElement).onclick = async () => {
+                    const targetId = parseInt((btn as HTMLElement).dataset.id!);
+                    closeModal();
+                    await resolveTargetEffect(playerId, targetId, card);
+                };
+            });
+        }
+    } else {
+        if (card.type === CardType.Handmaid) {
+            player.isProtected = true;
+            addLog(`${player.name} 獲得了侍女的保護。`);
+        }
+        await endTurn(playerId);
     }
+}
+
+async function resolveTargetEffect(actorId: number, targetId: number, card: Card) {
+    const actor = state.players[actorId];
+    const target = state.players[targetId];
 
     switch (card.type) {
         case CardType.Guard:
-            if (actor === 'player') {
+            if (!actor.isBot) {
                 let buttonsHTML = '<div class="guess-grid">';
                 for (let i = 2; i <= 8; i++) {
                     const def = CARD_DEFINITIONS[i as CardType];
@@ -284,218 +330,267 @@ function applyEffect(actor: PlayerType, card: Card) {
                     </button>`;
                 }
                 buttonsHTML += '</div>';
-                showModal("衛兵猜牌", "<p>請猜測 AI 的手牌：</p>" + buttonsHTML);
+                showModal(`對 ${target.name} 使用衛兵`, "<p>請猜測目標的手牌：</p>" + buttonsHTML);
                 
-                // 綁定點擊事件
                 const btns = modalBody.querySelectorAll('.guess-btn');
                 btns.forEach(btn => {
-                    (btn as HTMLElement).onclick = () => {
+                    (btn as HTMLElement).onclick = async () => {
                         const val = parseInt((btn as HTMLElement).dataset.value!);
                         closeModal();
-                        if (state.aiHand[0].value === val) {
-                            addLog(`玩家猜中了！AI 的手牌是 ${state.aiHand[0].name}`);
-                            eliminate('ai', "被衛兵猜中手牌");
+                        addLog(`${actor.name} 對 ${target.name} 猜測 ${val}`);
+                        if (target.hand[0].value === val) {
+                            addLog("猜中了！");
+                            eliminate(targetId, "被衛兵猜中手牌");
                         } else {
-                            addLog(`玩家猜錯了，AI 的手牌不是 ${val}`);
-                            endTurn('player');
+                            addLog("猜錯了。");
+                            await endTurn(actorId);
                         }
                     };
                 });
             } else {
-                // AI 智慧猜牌
-                const guessNum = getAISmartGuess();
-                addLog(`AI 猜測玩家的手牌是 ${guessNum} (${CARD_DEFINITIONS[guessNum as CardType].name})`);
-                if (state.playerHand[0].value === guessNum) {
-                    addLog(`AI 猜中了！`);
-                    eliminate('player', "被衛兵猜中手牌");
+                const guessNum = getAISmartGuess(actorId);
+                addLog(`${actor.name} 對 ${target.name} 猜測 ${guessNum} (${CARD_DEFINITIONS[guessNum as CardType].name})`);
+                if (target.hand[0].value === guessNum) {
+                    addLog("猜中了！");
+                    eliminate(targetId, "被衛兵猜中手牌");
                 } else {
-                    addLog(`AI 猜錯了。`);
-                    endTurn('ai');
+                    addLog("猜錯了。");
+                    await endTurn(actorId);
                 }
             }
             break;
 
         case CardType.Priest:
-            if (actor === 'player') {
-                const cardUI = createCardUI(state.aiHand[0], false);
+            if (!actor.isBot) {
+                const cardUI = createCardUI(target.hand[0], false);
                 cardUI.style.margin = '0 auto';
-                showModal("神父：查看手牌", `<p>AI 目前的手牌是：</p>${cardUI.outerHTML}`, `<button class="modal-confirm-btn" id="modal-ok-btn">我了解了</button>`);
-                document.getElementById('modal-ok-btn')!.onclick = () => {
+                showModal(`神父：看見 ${target.name} 的手牌`, cardUI.outerHTML, `<button class="modal-confirm-btn" id="modal-ok-btn">我了解了</button>`);
+                document.getElementById('modal-ok-btn')!.onclick = async () => {
                     closeModal();
-                    endTurn('player');
+                    await endTurn(actorId);
                 };
             } else {
-                addLog(`AI 看了一下玩家的手牌。`);
-                endTurn('ai');
+                addLog(`${actor.name} 看了一下 ${target.name} 的手牌。`);
+                await endTurn(actorId);
             }
             break;
 
         case CardType.Baron:
-            addLog("雙方比點數大小！");
-            setTimeout(() => {
-                const pVal = state.playerHand[0].value;
-                const aVal = state.aiHand[0].value;
-                if (pVal > aVal) {
-                    eliminate('ai', "男爵比輸了");
-                } else if (pVal < aVal) {
-                    eliminate('player', "男爵比輸了");
-                } else {
-                    addLog("點數相同，平安無事。");
-                    endTurn(actor);
-                }
-            }, 500);
-            break;
-
-        case CardType.Handmaid:
-            if (actor === 'player') state.playerIsProtected = true;
-            else state.aiIsProtected = true;
-            addLog(`${actor === 'player' ? '玩家' : 'AI'} 獲得了侍女的保護。`);
-            endTurn(actor);
+            addLog(`${actor.name} 與 ${target.name} 秘密比大小！`);
+            await sleep(1000);
+            const aVal = actor.hand[0].value;
+            const tVal = target.hand[0].value;
+            if (aVal > tVal) {
+                eliminate(targetId, "男爵比輸了");
+            } else if (aVal < tVal) {
+                eliminate(actorId, "男爵比輸了");
+            } else {
+                addLog("點數相同，平安無事。");
+                await endTurn(actorId);
+            }
             break;
 
         case CardType.Prince:
-            const target = actor === 'player' ? 'ai' : 'player';
-            addLog(`${actor === 'player' ? '玩家' : 'AI'} 使用王子指定 ${target === 'player' ? '玩家' : 'AI'} 棄牌。`);
-            discardAndDraw(target);
-            endTurn(actor);
+            addLog(`${actor.name} 強迫 ${target.name} 棄牌！`);
+            await sleep(500);
+            discardAndDraw(targetId);
+            await endTurn(actorId);
             break;
 
         case CardType.King:
-            addLog("國王交換手牌！");
-            const temp = state.playerHand;
-            state.playerHand = state.aiHand;
-            state.aiHand = temp;
-            endTurn(actor);
-            break;
-
-        case CardType.Countess:
-            endTurn(actor);
+            addLog(`${actor.name} 與 ${target.name} 交換手牌！`);
+            await sleep(500);
+            const temp = actor.hand;
+            actor.hand = target.hand;
+            target.hand = temp;
+            await endTurn(actorId);
             break;
     }
 }
 
-// AI 排除法猜牌邏輯
-function getAISmartGuess(): number {
-    // 統計場面上已公開的牌 (棄牌堆 + 移除的那張牌不算，因為不知道)
+function getAISmartGuess(botId: number): number {
     const knownCounts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0 };
-    [...state.playerDiscard, ...state.aiDiscard].forEach(c => {
-        knownCounts[c.value]++;
+    state.players.forEach(p => {
+        p.discardPile.forEach(c => knownCounts[c.value]++);
     });
+    state.players[botId].hand.forEach(c => knownCounts[c.value]++);
 
-    // 排除掉已經出完的，以及排除 1 號衛兵
     const possibleGuesses: number[] = [];
     for (let i = 2; i <= 8; i++) {
         if (knownCounts[i] < CARD_DEFINITIONS[i as CardType].count) {
             possibleGuesses.push(i);
         }
     }
-
-    if (possibleGuesses.length === 0) return 2; // 理論上不會發生
-    return possibleGuesses[Math.floor(Math.random() * possibleGuesses.length)];
+    return possibleGuesses.length > 0 ? possibleGuesses[Math.floor(Math.random() * possibleGuesses.length)] : 2;
 }
 
-function discardAndDraw(target: PlayerType) {
-    const hand = target === 'player' ? state.playerHand : state.aiHand;
-    if (hand.length === 0) return;
-    const discarded = hand.pop()!;
-    if (target === 'player') state.playerDiscard.push(discarded);
-    else state.aiDiscard.push(discarded);
-
-    addLog(`${target === 'player' ? '玩家' : 'AI'} 棄掉了 ${discarded.name}`);
+function discardAndDraw(targetId: number) {
+    const player = state.players[targetId];
+    if (player.hand.length === 0) return;
+    const discarded = player.hand.pop()!;
+    player.discardPile.push(discarded);
+    addLog(`${player.name} 棄掉了 ${discarded.name}`);
 
     if (discarded.type === CardType.Princess) {
-        eliminate(target, "棄掉了公主");
+        eliminate(targetId, "棄掉了公主");
     } else {
         if (state.deck.length > 0) {
             const newCard = state.deck.pop()!;
-            if (target === 'player') state.playerHand.push(newCard);
-            else state.aiHand.push(newCard);
+            player.hand.push(newCard);
         } else if (state.burnedCard) {
-            if (target === 'player') state.playerHand.push(state.burnedCard);
-            else state.aiHand.push(state.burnedCard);
+            player.hand.push(state.burnedCard);
             state.burnedCard = null;
         }
+        render();
     }
 }
 
-function eliminate(target: PlayerType, reason: string) {
-    if (target === 'player') {
-        state.playerIsAlive = false;
-        endGame('AI 獲勝！', `玩家${reason}出局了。`);
+function eliminate(playerId: number, reason: string) {
+    const player = state.players[playerId];
+    player.isAlive = false;
+    player.discardPile.push(...player.hand);
+    player.hand = [];
+    addLog(`${player.name}${reason}出局了！`);
+    
+    const survivors = state.players.filter(p => p.isAlive);
+    if (survivors.length === 1) {
+        endGame(survivors[0], `作為最後的倖存者`);
     } else {
-        state.aiIsAlive = false;
-        endGame('玩家獲勝！', `AI${reason}出局了。`);
+        if (state.currentTurnPlayerId === playerId) {
+            endTurn(playerId);
+        }
     }
 }
 
 function checkEndConditions() {
-    if (state.deck.length === 0 && state.playerHand.length === 1 && state.aiHand.length === 1) {
-        addLog("牌堆已空，雙方比大小！");
-        const pVal = state.playerHand[0].value;
-        const aVal = state.aiHand[0].value;
-        if (pVal > aVal) endGame('玩家獲勝！', `點數比拼: ${pVal} vs ${aVal}`);
-        else if (aVal > pVal) endGame('AI 獲勝！', `點數比拼: ${pVal} vs ${aVal}`);
-        else {
-            const pSum = state.playerDiscard.reduce((s, c) => s + c.value, 0);
-            const aSum = state.aiDiscard.reduce((s, c) => s + c.value, 0);
-            if (pSum > aSum) endGame('玩家獲勝！', `平手比拼棄牌總和: ${pSum} vs ${aSum}`);
-            else if (aSum > pSum) endGame('AI 獲勝！', `平手比拼棄牌總和: ${aSum} vs ${pSum}`);
-            else endGame('平局！', '連棄牌總和都一樣，真是奇蹟。');
+    if (state.isGameOver) return;
+    
+    if (state.deck.length === 0) {
+        const survivors = state.players.filter(p => p.isAlive);
+        if (survivors.every(p => p.hand.length === 1)) {
+            addLog("牌堆已空，存活者比大小！");
+            survivors.sort((a, b) => {
+                if (b.hand[0].value !== a.hand[0].value) {
+                    return b.hand[0].value - a.hand[0].value;
+                }
+                const aSum = a.discardPile.reduce((s, c) => s + c.value, 0);
+                const bSum = b.discardPile.reduce((s, c) => s + c.value, 0);
+                return bSum - aSum;
+            });
+            endGame(survivors[0], `比點數獲勝 (${survivors[0].hand[0].value})`);
         }
     }
 }
 
-function endGame(winnerTitle: string, reason: string) {
+function endGame(winner: Player, reason: string) {
     state.isGameOver = true;
-    state.winner = winnerTitle;
-    addLog(`【遊戲結束】${winnerTitle} (${reason})`);
-    showModal("遊戲結束", `<h3 style="color:#ff4d4d; font-size: 2rem;">${winnerTitle}</h3><p>${reason}</p>`, `<button class="modal-confirm-btn" id="modal-restart-btn">再玩一局</button>`);
+    state.winner = winner;
+    addLog(`【遊戲結束】${winner.name} 獲勝！(${reason})`);
+    showModal("遊戲結束", `<h3 style="color:#ff4d4d; font-size: 2rem;">${winner.name} 獲勝！</h3><p>${reason}</p>`, `<button class="modal-confirm-btn" id="modal-restart-btn">返回主選單</button>`);
     document.getElementById('modal-restart-btn')!.onclick = () => {
         closeModal();
-        initGame();
+        showScene('main-menu');
     };
     render();
 }
 
-function aiTurn() {
-    if (state.isGameOver) return;
-    drawCard('ai');
-    setTimeout(() => {
-        const hand = state.aiHand;
-        if (checkCountessConstraint(hand)) {
-            handlePlayCardRequest('ai', hand.find(c => c.type === CardType.Countess)!);
-            return;
-        }
-        let playable = hand.filter(c => c.type !== CardType.Princess);
-        if (playable.length === 0) playable = hand;
-        const cardToPlay = playable[Math.floor(Math.random() * playable.length)];
-        handlePlayCardRequest('ai', cardToPlay);
-    }, 1000);
+// 8. AI 回合優化
+async function botTurn(botId: number) {
+    if (state.isGameOver || state.currentTurnPlayerId !== botId) return;
+    
+    // 階段 1：等待（模擬看牌準備）
+    await sleep(1000);
+    
+    // 階段 2：抽牌
+    drawCard(botId);
+    
+    // 階段 3：模擬思考
+    await sleep(1200);
+    
+    const bot = state.players[botId];
+    if (checkCountessConstraint(bot.hand)) {
+        await handlePlayCardRequest(botId, bot.hand.find(c => c.type === CardType.Countess)!);
+        return;
+    }
+    let playable = bot.hand.filter(c => c.type !== CardType.Princess);
+    if (playable.length === 0) playable = bot.hand;
+    const cardToPlay = playable[Math.floor(Math.random() * playable.length)];
+    
+    await handlePlayCardRequest(botId, cardToPlay);
 }
 
-function initGame() {
+// 9. 選單邏輯
+function showScene(sceneId: 'main-menu' | 'mode-select' | 'bot-count-select' | 'game-scene') {
+    [mainMenuEl, modeSelectEl, botCountSelectEl, gameSceneEl].forEach(el => el.style.display = 'none');
+    document.getElementById(sceneId)!.style.display = sceneId === 'game-scene' ? 'block' : 'flex';
+}
+
+document.getElementById('start-game-btn')!.onclick = () => showScene('mode-select');
+document.getElementById('back-to-menu-btn')!.onclick = () => showScene('main-menu');
+document.getElementById('local-mode-btn')!.onclick = () => showScene('bot-count-select');
+document.getElementById('back-to-mode-btn')!.onclick = () => showScene('mode-select');
+document.getElementById('back-home-btn')!.onclick = () => {
+    if (confirm("確定要放棄目前戰局並返回主選單嗎？")) showScene('main-menu');
+};
+document.getElementById('show-rules-btn')!.onclick = () => {
+    showModal("遊戲說明", `
+        <div style="text-align: left; font-size: 0.9rem;">
+            <p>1. 每個回合抽一張牌，出一張牌。</p>
+            <p>2. 設法透過卡牌效果淘汰其他對手。</p>
+            <p>3. 牌堆空時，剩餘手牌點數最大者獲勝。</p>
+            <hr>
+            <p>8 公主: 棄掉即出局 | 7 伯爵夫人: 若持有 5,6 則必須打出</p>
+            <p>6 國王: 交換手牌 | 5 王子: 棄牌重抽</p>
+            <p>4 侍女: 一輪保護 | 3 男爵: 比大小</p>
+            <p>2 神父: 看對方手牌 | 1 衛兵: 猜對方手牌</p>
+        </div>
+    `, `<button class="modal-confirm-btn" onclick="this.closest('.modal-overlay').style.display='none'">關閉</button>`);
+};
+
+document.querySelectorAll('.count-btn').forEach(btn => {
+    (btn as HTMLElement).onclick = () => {
+        const botCount = parseInt((btn as HTMLElement).dataset.count!);
+        initGame(botCount);
+    };
+});
+
+// 10. 初始化
+function initGame(botCount: number) {
     let deck = createDeck();
     deck = shuffle(deck);
     const burnedCard = deck.pop() || null;
+
+    const players: Player[] = [
+        { id: 0, name: "玩家", isBot: false, hand: [deck.pop()!], isProtected: false, isAlive: true, discardPile: [] }
+    ];
+
+    const botNames = ["電腦 A", "電腦 B", "電腦 C"];
+    for (let i = 0; i < botCount; i++) {
+        players.push({
+            id: i + 1,
+            name: botNames[i],
+            isBot: true,
+            hand: [deck.pop()!],
+            isProtected: false,
+            isAlive: true,
+            discardPile: []
+        });
+    }
+
     state = {
         deck,
         burnedCard,
-        playerHand: [deck.pop()!],
-        playerDiscard: [],
-        playerIsProtected: false,
-        playerIsAlive: true,
-        aiHand: [deck.pop()!],
-        aiDiscard: [],
-        aiIsProtected: false,
-        aiIsAlive: true,
-        currentTurn: 'player',
+        players,
+        currentTurnPlayerId: 0,
         isGameOver: false,
         winner: null,
         logs: ["遊戲開始，玩家先攻！"]
     };
+
+    showScene('game-scene');
     render();
 }
 
-drawBtn.onclick = () => drawCard('player');
-restartBtn.onclick = initGame;
-initGame();
+drawBtn.onclick = () => drawCard(0);
+initGame(1); // 預設進來時背景跑一個 (雖然會被 menu 蓋住)
+showScene('main-menu');

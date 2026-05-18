@@ -10,31 +10,60 @@
     <div id="app">
       <h1>情書 Love Letter</h1>
       
-      <!-- AI 區域 -->
-      <div id="ai-area" class="area">
-        <h3>AI 狀態</h3>
-        <div id="ai-hand" class="hand-container"></div>
-        <div id="ai-discard" class="discard-container"></div>
-      </div>
-
-      <!-- 遊戲資訊與日誌 -->
-      <div id="game-info-area" class="area">
-        <div class="stats">
-          <div id="turn-indicator">當前回合：玩家</div>
-          <span id="deck-count">牌堆剩餘：0</span>
-          <button id="draw-btn">抽牌</button>
-          <button id="restart-btn" style="display:none;">重新開始</button>
-        </div>
-        <div id="game-log" class="log-container">
-          <p>[系統] 遊戲準備就緒</p>
+      <!-- 主選單區域 -->
+      <div id="main-menu" class="area menu-container">
+        <h2>主選單</h2>
+        <div class="menu-buttons">
+          <button id="start-game-btn" class="menu-btn primary">開始遊戲</button>
+          <button id="show-rules-btn" class="menu-btn">遊戲說明</button>
         </div>
       </div>
 
-      <!-- 玩家區域 -->
-      <div id="player-area" class="area">
-        <h3>玩家狀態</h3>
-        <div id="player-hand" class="hand-container"></div>
-        <div id="player-discard" class="discard-container"></div>
+      <!-- 模式選擇區域 -->
+      <div id="mode-select" class="area menu-container" style="display: none;">
+        <h2>選擇遊戲模式</h2>
+        <div class="menu-buttons">
+          <button id="online-mode-btn" class="menu-btn" disabled>玩家對戰 (連線模式) <br><small>(待稍後用 Colyseus 實作)</small></button>
+          <button id="local-mode-btn" class="menu-btn primary">電腦對戰 (單機模式)</button>
+          <button id="back-to-menu-btn" class="menu-btn secondary">返回</button>
+        </div>
+      </div>
+
+      <!-- 電腦人數選擇 -->
+      <div id="bot-count-select" class="area menu-container" style="display: none;">
+        <h2>請選擇電腦對手人數</h2>
+        <div class="menu-buttons count-buttons">
+          <button class="count-btn" data-count="1">1 人</button>
+          <button class="count-btn" data-count="2">2 人</button>
+          <button class="count-btn" data-count="3">3 人</button>
+        </div>
+        <button id="back-to-mode-btn" class="menu-btn secondary" style="margin-top: 20px;">返回</button>
+      </div>
+
+      <!-- 遊戲場景 -->
+      <div id="game-scene" style="display: none;">
+        <!-- 對手區域 (動態生成) -->
+        <div id="opponents-container"></div>
+
+        <!-- 遊戲資訊與日誌 -->
+        <div id="game-info-area" class="area">
+          <div class="stats">
+            <div id="turn-indicator">當前回合：玩家</div>
+            <span id="deck-count">牌堆剩餘：0</span>
+            <button id="draw-btn">抽牌</button>
+            <button id="back-home-btn" class="menu-btn secondary" style="padding: 5px 15px;">回主選單</button>
+          </div>
+          <div id="game-log" class="log-container">
+            <p>[系統] 遊戲準備就緒</p>
+          </div>
+        </div>
+
+        <!-- 玩家區域 -->
+        <div id="player-area" class="area">
+          <h3>玩家狀態</h3>
+          <div id="player-hand" class="hand-container"></div>
+          <div id="player-discard" class="discard-container"></div>
+        </div>
       </div>
     </div>
 
