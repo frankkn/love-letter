@@ -121,10 +121,10 @@ function render() {
         botArea.className = `area opponent-area ${bot.isProtected ? 'protected' : ''} ${!bot.isAlive ? 'eliminated' : ''} ${isActive ? 'active-turn' : ''}`;
         botArea.innerHTML = `
             <h3>${bot.name}</h3>
+            <div class="discard-container"></div>
             <div class="hand-container">
                 ${bot.hand.map(() => '<div class="card ai-card">?</div>').join('')}
             </div>
-            <div class="discard-container"></div>
         `;
         const discardContainer = botArea.querySelector('.discard-container')!;
         bot.discardPile.forEach(card => discardContainer.appendChild(createCardUI(card, false)));
