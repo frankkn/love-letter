@@ -360,13 +360,23 @@ function clearKnownCardForPlayer(playerId: number) {
     });
 }
 
+function pruneInvalidKnownCardsForPlayer(playerId: number) {
+    const player = state.players[playerId];
+    Object.values(state.aiMemory).forEach(memory => {
+        const rememberedType = memory[playerId];
+        if (rememberedType && !player.hand.some(card => card.type === rememberedType)) {
+            delete memory[playerId];
+        }
+    });
+}
+
 function drawCard(playerId: number) {
     if (state.deck.length === 0) return;
     const player = state.players[playerId];
     player.isHandRevealed = false;
-    clearKnownCardForPlayer(playerId);
     const card = state.deck.pop()!;
     player.hand.push(card);
+    pruneInvalidKnownCardsForPlayer(playerId);
     addLog(`${player.name} 抽了一張牌。`);
     render();
 }
@@ -667,11 +677,19 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
             ];
             addLog(`${actor.name} 與 ${target.name} 交換手牌！`);
             await sleep(500);
+            const actorTransferredCard = actor.hand[0];
+            const targetTransferredCard = target.hand[0];
             const temp = actor.hand;
             actor.hand = target.hand;
             target.hand = temp;
             clearKnownCardForPlayer(actorId);
             clearKnownCardForPlayer(targetId);
+            if (actorTransferredCard) {
+                rememberKnownCard(actorId, targetId, actorTransferredCard.type);
+            }
+            if (targetTransferredCard) {
+                rememberKnownCard(targetId, actorId, targetTransferredCard.type);
+            }
             if (shouldEndTurn) await endTurn(actorId);
             else render();
             break;
@@ -680,8 +698,13 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
 
 function getAISmartGuess(botId: number, targetId: number): number {
     const rememberedType = state.aiMemory[botId]?.[targetId];
-    if (rememberedType && rememberedType !== CardType.Guard) {
-        return rememberedType;
+    if (rememberedType) {
+        const targetStillHasRememberedCard = state.players[targetId].hand.some(card => card.type === rememberedType);
+        if (!targetStillHasRememberedCard) {
+            delete state.aiMemory[botId][targetId];
+        } else if (rememberedType !== CardType.Guard) {
+            return rememberedType;
+        }
     }
 
     const knownCounts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0 };
