@@ -259,6 +259,14 @@ function createCardUI(card: Card, isPlayable: boolean): HTMLElement {
         </div>
         <div class="card-desc">${card.description}</div>
     `;
+    cardDiv.addEventListener('pointerenter', () => {
+        wrapper.classList.add('card-wrapper-hovering');
+        wrapper.closest('.area')?.classList.add('card-area-hovering');
+    });
+    cardDiv.addEventListener('pointerleave', () => {
+        wrapper.classList.remove('card-wrapper-hovering');
+        wrapper.closest('.area')?.classList.remove('card-area-hovering');
+    });
     wrapper.appendChild(cardDiv);
 
     if (actionHints.length > 0) {

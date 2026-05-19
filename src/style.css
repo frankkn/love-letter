@@ -5,6 +5,11 @@
   color-scheme: dark;
   background-color: #1a1a1a;
   color: #e0e0e0;
+  overflow: visible !important;
+}
+
+body {
+  overflow: visible !important;
 }
 
 #app {
@@ -14,6 +19,7 @@
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  overflow: visible !important;
 }
 
 h1 {
@@ -27,6 +33,8 @@ h1 {
   padding: 1rem;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  position: relative;
+  overflow: visible !important;
 }
 
 h3 {
@@ -43,6 +51,7 @@ h3 {
   min-height: 140px;
   margin-bottom: 10px;
   justify-content: center;
+  overflow: visible !important;
 }
 
 .discard-container {
@@ -61,7 +70,7 @@ h3 {
   gap: 4px;
   cursor: pointer;
   position: relative;
-  overflow: visible;
+  overflow: visible !important;
 }
 
 .card {
@@ -80,12 +89,19 @@ h3 {
   transition: transform 0.2s, box-shadow 0.2s;
   user-select: none;
   position: relative;
+  overflow: visible !important;
+  z-index: 1;
 }
 
 .card:hover {
   transform: translateY(-5px);
   box-shadow: 0 5px 15px rgba(255, 77, 77, 0.4);
   border-color: #ff4d4d;
+  z-index: 999;
+}
+
+.card-wrapper-hovering .card {
+  z-index: 999;
 }
 
 .card.ai-card {
@@ -132,8 +148,8 @@ h3 {
   display: none;
   position: absolute;
   top: 0;
-  left: 105px;
-  z-index: 99;
+  left: 106px;
+  z-index: 9999;
   width: 160px;
   box-sizing: border-box;
   padding: 10px 12px;
@@ -151,6 +167,19 @@ h3 {
 
 .card:hover .card-desc {
   display: block;
+}
+
+.card-wrapper-hovering .card-desc {
+  display: block;
+  z-index: 9999;
+}
+
+.card-wrapper-hovering {
+  z-index: 999;
+}
+
+.card-area-hovering {
+  z-index: 998;
 }
 
 .card-action-hints {
@@ -192,6 +221,7 @@ h3 {
   gap: 20px;
   align-items: flex-start;
   width: 100%;
+  overflow: visible !important;
 }
 
 .main-battle-area {
@@ -200,6 +230,7 @@ h3 {
   flex-direction: column;
   gap: 20px;
   min-width: 0;
+  overflow: visible !important;
 }
 
 .card-stats-area {
@@ -207,6 +238,7 @@ h3 {
   position: sticky;
   top: 20px;
   height: fit-content;
+  overflow: visible !important;
 }
 
 .played-card-stats {
@@ -265,6 +297,7 @@ h3 {
   gap: 20px;
   position: sticky;
   top: 20px;
+  overflow: visible !important;
 }
 
 #game-info-area {
@@ -526,6 +559,7 @@ h3 {
   gap: 15px;
   justify-content: center;
   margin-bottom: 20px;
+  overflow: visible !important;
 }
 
 .opponent-area {
