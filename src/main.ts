@@ -31,6 +31,7 @@ export interface Player {
     isProtected: boolean; // 侍女保護狀態
     isAlive: boolean;     // 是否還活著
     discardPile: Card[];  // 已打出的牌堆
+    isHandRevealed?: boolean; // 是否需在畫面上暫時強制翻開手牌
 }
 
 export interface GameState {
@@ -159,17 +160,27 @@ function render() {
         const botArea = document.createElement('div');
         const isActive = !state.isGameOver && state.currentTurnPlayerId === bot.id;
         const isWinner = state.winner?.id === bot.id;
+        const shouldRevealHand = state.isGameOver || bot.isHandRevealed;
         botArea.className = `area opponent-area ${bot.isProtected ? 'protected' : ''} ${!bot.isAlive ? 'eliminated' : ''} ${isActive ? 'active-turn' : ''} ${isWinner ? 'winner-area' : ''}`;
         botArea.innerHTML = `
             ${isWinner ? '<div class="winner-crown" title="勝利者">♛</div>' : ''}
             <h3>${bot.name}${getCoinIcons(bot.coins)}</h3>
             <div class="discard-container"></div>
-            <div class="hand-container">
-                ${bot.hand.map(() => '<div class="card ai-card">?</div>').join('')}
-            </div>
+            <div class="hand-container"></div>
         `;
         const discardContainer = botArea.querySelector('.discard-container')!;
         bot.discardPile.forEach(card => discardContainer.appendChild(createCardUI(card, false)));
+        const handContainer = botArea.querySelector('.hand-container')!;
+        bot.hand.forEach(card => {
+            if (shouldRevealHand) {
+                handContainer.appendChild(createCardUI(card, false));
+            } else {
+                const hiddenCard = document.createElement('div');
+                hiddenCard.className = 'card ai-card';
+                hiddenCard.textContent = '?';
+                handContainer.appendChild(hiddenCard);
+            }
+        });
         opponentsContainerEl.appendChild(botArea);
     });
 
@@ -271,6 +282,7 @@ function addLog(msg: string) {
 function drawCard(playerId: number) {
     if (state.deck.length === 0) return;
     const player = state.players[playerId];
+    player.isHandRevealed = false;
     const card = state.deck.pop()!;
     player.hand.push(card);
     addLog(`${player.name} 抽了一張牌。`);
@@ -474,19 +486,31 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
             const aliveBeforeCompare = state.players.filter(p => p.isAlive).length;
 
             if (aVal > tVal) {
-                addLog(`${actor.name}(${actorCard.name} ${aVal}) 與 ${target.name}(${targetCard.name} ${tVal}) 比點數，${target.name} 點數較小攤牌出局！`);
-                if (aliveBeforeCompare === 3) {
+                if (aliveBeforeCompare === 2) {
+                    actor.isHandRevealed = true;
+                    target.isHandRevealed = true;
                     addLog(`最後兩名對決者攤牌：${actor.name} 亮出 ${actorCard.name}(${aVal})，${target.name} 亮出 ${targetCard.name}(${tVal})。`);
+                } else {
+                    target.isHandRevealed = true;
+                    addLog(`${actor.name} 與 ${target.name} 比點數，${target.name} 點數較小，攤牌 ${targetCard.name}(${tVal}) 出局！`);
                 }
+                render();
+                await sleep(2000);
                 eliminate(targetId, "男爵比輸了");
             } else if (aVal < tVal) {
-                addLog(`${actor.name}(${actorCard.name} ${aVal}) 與 ${target.name}(${targetCard.name} ${tVal}) 比點數，${actor.name} 點數較小攤牌出局！`);
-                if (aliveBeforeCompare === 3) {
+                if (aliveBeforeCompare === 2) {
+                    actor.isHandRevealed = true;
+                    target.isHandRevealed = true;
                     addLog(`最後兩名對決者攤牌：${actor.name} 亮出 ${actorCard.name}(${aVal})，${target.name} 亮出 ${targetCard.name}(${tVal})。`);
+                } else {
+                    actor.isHandRevealed = true;
+                    addLog(`${actor.name} 與 ${target.name} 比點數，${actor.name} 點數較小，攤牌 ${actorCard.name}(${aVal}) 出局！`);
                 }
+                render();
+                await sleep(2000);
                 eliminate(actorId, "男爵比輸了");
             } else {
-                addLog(`${actor.name}(${actorCard.name} ${aVal}) 與 ${target.name}(${targetCard.name} ${tVal}) 點數相同，平安無事。`);
+                addLog(`${actor.name} 與 ${target.name} 點數相同，平安無事。`);
                 if (shouldEndTurn) await endTurn(actorId);
                 else render();
             }
@@ -830,7 +854,7 @@ function initGame(botCount: number) {
     const burnedCard = deck.pop() || null;
 
     const players: Player[] = [
-        { id: 0, name: "玩家", isBot: false, coins: 0, hand: [deck.pop()!], isProtected: false, isAlive: true, discardPile: [] }
+        { id: 0, name: "玩家", isBot: false, coins: 0, hand: [deck.pop()!], isProtected: false, isAlive: true, discardPile: [], isHandRevealed: false }
     ];
 
     const botNames = ["電腦 A", "電腦 B", "電腦 C"];
@@ -843,7 +867,8 @@ function initGame(botCount: number) {
             hand: [deck.pop()!],
             isProtected: false,
             isAlive: true,
-            discardPile: []
+            discardPile: [],
+            isHandRevealed: false
         });
     }
 
@@ -875,6 +900,7 @@ function startNextRound() {
         player.isProtected = false;
         player.isAlive = true;
         player.discardPile = [];
+        player.isHandRevealed = false;
     });
 
     state.deck = deck;
