@@ -242,24 +242,30 @@ function render() {
 }
 
 function createCardUI(card: Card, isPlayable: boolean): HTMLElement {
-    const div = document.createElement('div');
-    div.className = 'card';
-    if (!isPlayable) div.style.cursor = 'default';
+    const wrapper = document.createElement('div');
+    wrapper.className = 'card-wrapper';
+    if (!isPlayable) wrapper.style.cursor = 'default';
     const actionHints = card.actionHints ?? (card.targetName && card.guessedCardName
         ? [{ text: `🎯 對 ${card.targetName} 猜: ${card.guessedCardName}` }]
         : []);
     const actionHintHTML = actionHints.length > 0
         ? `<div class="card-action-hints">${actionHints.map(hint => `<div class="card-action-hint ${hint.variant ? `card-action-hint-${hint.variant}` : ''}">${hint.text}</div>`).join('')}</div>`
         : '';
-    div.innerHTML = `
-        <div class="card-header">
-            <span class="card-name">${card.name}</span>
-            <div class="card-value">${card.value}</div>
+    wrapper.innerHTML = `
+        <div class="card">
+            <div class="card-header">
+                <span class="card-name">${card.name}</span>
+                <div class="card-value">${card.value}</div>
+            </div>
+            <div class="card-desc">${card.description}</div>
         </div>
-        <div class="card-desc">${card.description}</div>
         ${actionHintHTML}
     `;
-    return div;
+    if (!isPlayable) {
+        const cardEl = wrapper.querySelector('.card') as HTMLElement;
+        cardEl.style.cursor = 'default';
+    }
+    return wrapper;
 }
 
 // Modal 系統
