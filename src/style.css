@@ -44,6 +44,22 @@ h3 {
   color: #ffa502;
 }
 
+.coin-icons {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.12em;
+  vertical-align: -0.12em;
+  line-height: 1;
+}
+
+.coin-icon {
+  width: 1em;
+  height: 1em;
+  flex: 0 0 auto;
+  display: inline-block;
+}
+
 .hand-container, .discard-container {
   display: flex;
   flex-wrap: wrap;

@@ -178,8 +178,20 @@ function renderPlayedCardStats() {
     }
 }
 
+function coinIconHTML(): string {
+    return `
+        <svg class="coin-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <circle cx="12" cy="12" r="10" fill="#f6c85f" stroke="#9b6b13" stroke-width="1.8"></circle>
+            <circle cx="12" cy="12" r="6.7" fill="#ffd978" stroke="#c58a1d" stroke-width="1.2"></circle>
+            <path d="M8.6 12.9h6.8M9.6 9.6h4.8M9.6 16.1h4.8" stroke="#8b5a0a" stroke-width="1.6" stroke-linecap="round"></path>
+        </svg>
+    `;
+}
+
 function getCoinIcons(coins: number): string {
-    return coins > 0 ? ` ${'🪙'.repeat(coins)}` : '';
+    return coins > 0
+        ? `<span class="coin-icons" aria-label="${coins} 枚硬幣">${coinIconHTML().repeat(coins)}</span>`
+        : '';
 }
 
 function render() {
@@ -238,7 +250,7 @@ function render() {
 
     const humanTitle = playerAreaEl.querySelector('h3');
     if (humanTitle) {
-        humanTitle.textContent = `${human.name}${getCoinIcons(human.coins)} 狀態`;
+        humanTitle.innerHTML = `${human.name}${getCoinIcons(human.coins)} 狀態`;
     }
     
     playerHandEl.innerHTML = '';
@@ -879,7 +891,7 @@ function createRankingHTML(): string {
         <div style="display: grid; grid-template-columns: 4rem 1fr auto; align-items: center; gap: 0.8rem; padding: 0.75rem 0.85rem; border-radius: 8px; background: ${rank === 1 ? 'rgba(255, 176, 0, 0.18)' : 'rgba(255,255,255,0.06)'}; border: 1px solid ${rank === 1 ? 'rgba(255, 176, 0, 0.38)' : 'rgba(255,255,255,0.08)'};">
             <strong style="color: ${rank === 1 ? '#ffb000' : '#f2f2f2'};">第 ${rank} 名</strong>
             <span style="font-weight: 700;">${player.name}</span>
-            <span style="font-size: 1.25rem; letter-spacing: 0.08rem;">${player.coins > 0 ? '🪙'.repeat(player.coins) : '<span style="font-size: 0.9rem; color: #999;">尚未得分</span>'}</span>
+            <span style="font-size: 1.25rem;">${player.coins > 0 ? getCoinIcons(player.coins) : '<span style="font-size: 0.9rem; color: #999;">尚未得分</span>'}</span>
         </div>
     `).join('');
 
@@ -907,7 +919,7 @@ function showChampionModal() {
             <p style="margin: 0.65rem 0 0; font-size: 1.05rem;">
                 最終拿滿 4 枚硬幣的 Love Letter 總冠軍大贏家！🎉
             </p>
-            <div style="margin-top: 1rem; font-size: 1.65rem; letter-spacing: 0.12rem;">${'🪙'.repeat(champion.coins)}</div>
+            <div style="margin-top: 1rem; font-size: 1.65rem;">${getCoinIcons(champion.coins)}</div>
         </div>
     `, `<button class="modal-confirm-btn" id="champion-return-btn">返回</button>`);
 
