@@ -780,7 +780,7 @@ document.getElementById('show-rules-btn')!.onclick = () => {
                         <tr style="border-top: 1px solid rgba(255,255,255,0.1);">
                             <td style="padding: 0.7rem; font-weight: 700;"><span style="display: inline-flex; align-items: center; justify-content: center; width: 1.7rem; height: 1.7rem; margin-right: 0.45rem; border-radius: 50%; background: #ff4d4d; color: white;">1</span>衛兵</td>
                             <td style="padding: 0.7rem; text-align: center; color: #ffb000; font-weight: 700;">5張</td>
-                            <td style="padding: 0.7rem;">選擇一名對手並猜測其手牌（衛兵除外），若猜中則對方直接出局。</td>
+                            <td style="padding: 0.7rem;">選擇一名對手並猜測其手牌（不能猜衛兵），若猜中則對方直接出局。</td>
                         </tr>
                         <tr style="border-top: 1px solid rgba(255,255,255,0.1);">
                             <td style="padding: 0.7rem; font-weight: 700;"><span style="display: inline-flex; align-items: center; justify-content: center; width: 1.7rem; height: 1.7rem; margin-right: 0.45rem; border-radius: 50%; background: #ff5a5f; color: white;">2</span>神父</td>
