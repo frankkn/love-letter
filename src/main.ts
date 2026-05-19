@@ -121,6 +121,7 @@ function shuffle<T>(array: T[]): T[] {
 // 3. 全域狀態
 let state: GameState;
 let selectedCardId: string | null = null;
+let isResolvingTurnAction = false;
 
 // 4. DOM 元素
 const mainMenuEl = document.getElementById('main-menu')!;
@@ -288,7 +289,7 @@ function render() {
     gameLogEl.scrollTop = gameLogEl.scrollHeight;
 
     // 按鈕狀態
-    drawBtn.disabled = state.isGameOver || !isHumanTurn || human.hand.length >= 2 || state.deck.length === 0;
+    drawBtn.disabled = state.isGameOver || isResolvingTurnAction || !isHumanTurn || !human.isAlive || human.hand.length >= 2 || state.deck.length === 0;
     drawBtn.style.display = state.isGameOver ? 'none' : 'block';
     showResultBtn.style.display = state.isGameOver ? 'block' : 'none';
 }
@@ -372,6 +373,7 @@ function restorePlayRollback(rollback?: PlayRollback) {
     player.isProtected = rollback.isProtected;
     state.logs = state.logs.slice(0, rollback.logLength);
     selectedCardId = null;
+    isResolvingTurnAction = false;
     closeModal();
     render();
 }
@@ -436,8 +438,10 @@ function pruneInvalidKnownCardsForPlayer(playerId: number) {
 }
 
 function drawCard(playerId: number) {
+    if (state.isGameOver || isResolvingTurnAction || state.currentTurnPlayerId !== playerId) return;
     if (state.deck.length === 0) return;
     const player = state.players[playerId];
+    if (!player.isAlive || player.hand.length >= 2) return;
     player.isHandRevealed = false;
     if (!player.isBot) selectedCardId = null;
     const card = state.deck.pop()!;
@@ -453,9 +457,10 @@ function checkCountessConstraint(hand: Card[]): boolean {
     return hasCountess && hasPrinceOrKing;
 }
 
-function handlePlayCardRequest(playerId: number, card: Card) {
-    if (state.isGameOver) return;
+async function handlePlayCardRequest(playerId: number, card: Card) {
+    if (state.isGameOver || isResolvingTurnAction || state.currentTurnPlayerId !== playerId) return;
     const player = state.players[playerId];
+    if (!player.isAlive || player.hand.length < 2) return;
     
     if (checkCountessConstraint(player.hand) && card.type !== CardType.Countess) {
         if (!player.isBot) {
@@ -472,12 +477,13 @@ function handlePlayCardRequest(playerId: number, card: Card) {
         }
     }
 
-    executePlayCard(playerId, card);
+    await executePlayCard(playerId, card);
 }
 
 async function executePlayCard(playerId: number, card: Card) {
     const player = state.players[playerId];
     const rollback = player.isBot ? undefined : createPlayRollback(playerId);
+    isResolvingTurnAction = true;
     player.hand = player.hand.filter(c => c.id !== card.id);
     player.discardPile.push(card);
     player.isProtected = false;
@@ -498,6 +504,8 @@ async function endTurn(playerId: number) {
             nextId = (nextId + 1) % state.players.length;
         }
         state.currentTurnPlayerId = nextId;
+        selectedCardId = null;
+        isResolvingTurnAction = false;
         render();
 
         if (state.players[nextId].isBot) {
@@ -930,6 +938,8 @@ function showChampionModal() {
 function endGame(winner: Player, reason: string) {
     if (state.isGameOver) return;
 
+    selectedCardId = null;
+    isResolvingTurnAction = false;
     state.isGameOver = true;
     state.winner = winner;
     endGameReason = reason;
@@ -1113,6 +1123,8 @@ document.querySelectorAll('.count-btn').forEach(btn => {
 // 10. 初始化
 function initGame(botCount: number) {
     endGameReason = '';
+    selectedCardId = null;
+    isResolvingTurnAction = false;
     let deck = createDeck();
     deck = shuffle(deck);
     const burnedCard = deck.pop() || null;
@@ -1155,6 +1167,8 @@ function startNextRound() {
     if (!state.winner) return;
 
     endGameReason = '';
+    selectedCardId = null;
+    isResolvingTurnAction = false;
     const firstPlayerId = state.winner.id;
     let deck = createDeck();
     deck = shuffle(deck);
