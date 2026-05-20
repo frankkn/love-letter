@@ -69,6 +69,11 @@ interface PlayRollback {
     logLength: number;
 }
 
+interface PrinceDiscardResult {
+    discarded: Card | null;
+    hasPendingForcedEffect: boolean;
+}
+
 // 2. 宣告原版 16 張卡牌資料
 const CARD_DEFINITIONS: Record<CardType, { name: string; count: number; desc: string }> = {
     [CardType.Guard]: { name: '衛兵', count: 5, desc: '猜對手手牌（衛兵除外），猜中則對方出局。' },
@@ -181,6 +186,8 @@ let lobbyRoom: Room | null = null;
 let activeGameRoom: Room<unknown, SyncedRoomState> | null = null;
 let lobbyRooms: LobbyRoomSummary[] = [];
 let currentRoomWaitState: RoomWaitViewState | null = null;
+let pendingForcedEffect: PendingForcedEffect | null = null;
+let isHandlingPendingForcedEffect = false;
 
 async function leaveRoomIfConnected(room: Room | null) {
     if (!room) return;
@@ -210,6 +217,8 @@ async function resetClientState() {
 
     lobbyRooms = [];
     currentRoomWaitState = null;
+    pendingForcedEffect = null;
+    isHandlingPendingForcedEffect = false;
     selectedCardId = null;
     isResolvingTurnAction = false;
     queuedBotTurnId = null;
@@ -844,18 +853,23 @@ async function applyEffect(playerId: number, card: Card, shouldEndTurn = true, r
             const target = knownGuardTarget ?? botTargets[Math.floor(Math.random() * botTargets.length)];
             await sleep(1000); // 模擬選標準備
             await resolveTargetEffect(playerId, target.id, card, shouldEndTurn);
-        } else {
-            showModal(`請選擇 ${card.name} 的目標`, createTargetSelectModalBodyHTML(card, allPotentialTargets), cancelButtonHTML());
-            bindCancelRollback(rollback);
-            
-            const btns = modalBody.querySelectorAll('.target-btn');
-            btns.forEach(btn => {
-                (btn as HTMLElement).onclick = async () => {
-                    const targetId = parseInt((btn as HTMLElement).dataset.id!);
-                    closeModal();
-                    await resolveTargetEffect(playerId, targetId, card, shouldEndTurn, rollback);
-                };
+        } else if (isLocalEffectController(playerId)) {
+            await new Promise<void>(resolve => {
+                showModal(`請選擇 ${card.name} 的目標`, createTargetSelectModalBodyHTML(card, allPotentialTargets), cancelButtonHTML());
+                bindCancelRollback(rollback);
+
+                const btns = modalBody.querySelectorAll('.target-btn');
+                btns.forEach(btn => {
+                    (btn as HTMLElement).onclick = async () => {
+                        const targetId = parseInt((btn as HTMLElement).dataset.id!);
+                        closeModal();
+                        await resolveTargetEffect(playerId, targetId, card, shouldEndTurn, rollback);
+                        resolve();
+                    };
+                });
             });
+        } else {
+            render();
         }
     } else {
         if (card.type === CardType.Handmaid) {
@@ -876,7 +890,7 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
 
     switch (card.type) {
         case CardType.Guard:
-            if (!actor.isBot) {
+            if (!actor.isBot && isLocalEffectController(actorId)) {
                 let buttonsHTML = '<div class="guess-grid">';
                 for (let i = 2; i <= 8; i++) {
                     const def = CARD_DEFINITIONS[i as CardType];
@@ -923,6 +937,8 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
                         }
                     };
                 });
+            } else if (!actor.isBot) {
+                render();
             } else {
                 const guessNum = getAISmartGuess(actorId, targetId);
                 const playedGuard = recordGuardGuess(actor, target, guessNum as CardType);
@@ -1076,12 +1092,17 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
                     '繼續'
                 );
             }
-            const discardedByPrince = await discardAndDraw(targetId);
-            if (discardedByPrince) {
+            const princeDiscardResult = await discardAndDraw(targetId, actorId, shouldEndTurn);
+            if (princeDiscardResult.discarded) {
                 card.actionHints = [
                     { text: `🎯 對 ${target.name} 使用` },
-                    { text: `🗑️ 丟棄了 ${discardedByPrince.name}` }
+                    { text: `🗑️ 丟棄了 ${princeDiscardResult.discarded.name}` }
                 ];
+            }
+            if (princeDiscardResult.hasPendingForcedEffect) {
+                render();
+                syncOnlineGameState();
+                break;
             }
             if (shouldEndTurn) await endTurn(actorId);
             else {
@@ -1158,9 +1179,11 @@ function getAISmartGuess(botId: number, targetId: number): number {
     return possibleGuesses.length > 0 ? possibleGuesses[Math.floor(Math.random() * possibleGuesses.length)] : 2;
 }
 
-async function discardAndDraw(targetId: number): Promise<Card | null> {
+async function discardAndDraw(targetId: number, returnTurnPlayerId: number, shouldEndTurnAfterResolution: boolean): Promise<PrinceDiscardResult> {
     const player = state.players[targetId];
-    if (player.hand.length === 0) return null;
+    if (player.hand.length === 0) {
+        return { discarded: null, hasPendingForcedEffect: false };
+    }
     clearKnownCardForPlayer(targetId);
     const discarded = player.hand.pop()!;
     player.discardPile.push(discarded);
@@ -1168,7 +1191,7 @@ async function discardAndDraw(targetId: number): Promise<Card | null> {
 
     if (discarded.type === CardType.Princess) {
         eliminate(targetId, "棄掉了公主");
-        return discarded;
+        return { discarded, hasPendingForcedEffect: false };
     }
 
     if (state.deck.length > 0) {
@@ -1181,14 +1204,28 @@ async function discardAndDraw(targetId: number): Promise<Card | null> {
         addLog(`${player.name} 補抽了燒掉的牌。`);
     }
 
+    if (isForcedEffectCard(discarded) && isOnlineGameActive() && targetId !== localPlayerId) {
+        pendingForcedEffect = {
+            reactorId: targetId,
+            card: discarded,
+            returnTurnPlayerId,
+            shouldEndTurnAfterResolution
+        };
+        render();
+        syncOnlineGameState();
+        return { discarded, hasPendingForcedEffect: true };
+    }
+
     await applyEffect(targetId, discarded, false);
-    if (state.isGameOver || !player.isAlive) return discarded;
+    if (state.isGameOver || !player.isAlive) {
+        return { discarded, hasPendingForcedEffect: false };
+    }
 
     if (modalOverlay.style.display !== 'flex') {
         render();
         syncOnlineGameState();
     }
-    return discarded;
+    return { discarded, hasPendingForcedEffect: false };
 }
 
 function eliminate(playerId: number, reason: string) {
@@ -1480,9 +1517,17 @@ interface OnlineGameData {
     logs: string[];
 }
 
+interface PendingForcedEffect {
+    reactorId: number;
+    card: Card;
+    returnTurnPlayerId: number;
+    shouldEndTurnAfterResolution: boolean;
+}
+
 interface OnlineGameStateData extends OnlineGameData {
     isGameOver: boolean;
     winner: Player | null;
+    pendingForcedEffect: PendingForcedEffect | null;
 }
 
 function getConnectionErrorMessage(error: unknown): string {
@@ -1613,13 +1658,46 @@ function createOnlineGameStateData(): OnlineGameStateData {
         currentTurnPlayerId: state.currentTurnPlayerId,
         isGameOver: state.isGameOver,
         winner: state.winner ? cloneOnlinePlayer(state.winner) : null,
-        logs: [...state.logs]
+        logs: [...state.logs],
+        pendingForcedEffect: pendingForcedEffect ? {
+            ...pendingForcedEffect,
+            card: { ...pendingForcedEffect.card }
+        } : null
     };
 }
 
 function syncOnlineGameState() {
     if (!isOnlineGameActive() || isApplyingOnlineState) return;
     activeGameRoom?.send('sync_game_state', createOnlineGameStateData());
+}
+
+function isLocalEffectController(playerId: number) {
+    return !isOnlineGameActive() || playerId === localPlayerId;
+}
+
+function isForcedEffectCard(card: Card) {
+    return card.type !== CardType.Princess && card.type !== CardType.Handmaid;
+}
+
+async function handlePendingForcedEffect() {
+    if (!pendingForcedEffect || isHandlingPendingForcedEffect) return;
+    if (pendingForcedEffect.reactorId !== localPlayerId) return;
+
+    isHandlingPendingForcedEffect = true;
+    const effect = pendingForcedEffect;
+    pendingForcedEffect = null;
+
+    try {
+        await applyEffect(effect.reactorId, effect.card, false);
+        if (effect.shouldEndTurnAfterResolution && !state.isGameOver) {
+            await endTurn(effect.returnTurnPlayerId);
+        } else {
+            render();
+            syncOnlineGameState();
+        }
+    } finally {
+        isHandlingPendingForcedEffect = false;
+    }
 }
 
 function applyOnlineGameState(data: OnlineGameStateData) {
@@ -1648,6 +1726,10 @@ function applyOnlineGameState(data: OnlineGameStateData) {
             logs: [...data.logs],
             aiMemory: {}
         };
+        pendingForcedEffect = data.pendingForcedEffect ? {
+            ...data.pendingForcedEffect,
+            card: { ...data.pendingForcedEffect.card }
+        } : null;
 
         onlineGameInitialized = true;
         closeModal();
@@ -1657,13 +1739,16 @@ function applyOnlineGameState(data: OnlineGameStateData) {
     } finally {
         isApplyingOnlineState = false;
     }
+
+    void handlePendingForcedEffect();
 }
 
 function applyOnlineGameData(data: OnlineGameData) {
     applyOnlineGameState({
         ...data,
         isGameOver: false,
-        winner: null
+        winner: null,
+        pendingForcedEffect: null
     });
 }
 
@@ -2058,6 +2143,8 @@ function initGame(botCount: number) {
     localPlayerId = 0;
     onlineGameInitialized = false;
     isApplyingOnlineState = false;
+    pendingForcedEffect = null;
+    isHandlingPendingForcedEffect = false;
     queuedBotTurnId = null;
     selectedCardId = null;
     isResolvingTurnAction = false;
@@ -2106,6 +2193,8 @@ function startNextRound() {
     queuedBotTurnId = null;
     selectedCardId = null;
     isResolvingTurnAction = false;
+    pendingForcedEffect = null;
+    isHandlingPendingForcedEffect = false;
     const firstPlayerId = state.winner.id;
     let deck = createDeck();
     deck = shuffle(deck);
