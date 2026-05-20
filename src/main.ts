@@ -127,6 +127,7 @@ let isResolvingTurnAction = false;
 let queuedBotTurnId: number | null = null;
 let localPlayerId = 0;
 let onlineGameInitialized = false;
+let isApplyingOnlineState = false;
 
 interface LobbyRoomSummary {
     roomId: string;
@@ -420,6 +421,7 @@ function render() {
     drawBtn.disabled = state.isGameOver || isResolvingTurnAction || !isHumanTurn || !human.isAlive || human.hand.length >= 2 || state.deck.length === 0;
     drawBtn.style.display = state.isGameOver ? 'none' : 'block';
     showResultBtn.style.display = state.isGameOver ? 'block' : 'none';
+    syncOnlineGameState();
 }
 
 function createCardUI(card: Card, isPlayable: boolean): HTMLElement {
@@ -1395,6 +1397,11 @@ interface OnlineGameData {
     logs: string[];
 }
 
+interface OnlineGameStateData extends OnlineGameData {
+    isGameOver: boolean;
+    winner: Player | null;
+}
+
 function getConnectionErrorMessage(error: unknown): string {
     if (error instanceof Error && error.message) {
         return error.message;
@@ -1502,29 +1509,57 @@ function createInitialOnlineGameData(roomState: RoomWaitViewState): OnlineGameDa
     };
 }
 
-function applyOnlineGameData(data: OnlineGameData) {
+function isOnlineGameActive(): boolean {
+    return Boolean(activeGameRoom && onlineGameInitialized);
+}
+
+function cloneOnlinePlayer(player: Player): Player {
+    return {
+        ...player,
+        hand: [...player.hand],
+        discardPile: [...player.discardPile],
+        isBot: false
+    };
+}
+
+function createOnlineGameStateData(): OnlineGameStateData {
+    return {
+        deck: [...state.deck],
+        burnedCard: state.burnedCard,
+        players: state.players.map(cloneOnlinePlayer),
+        currentTurnPlayerId: state.currentTurnPlayerId,
+        isGameOver: state.isGameOver,
+        winner: state.winner ? cloneOnlinePlayer(state.winner) : null,
+        logs: [...state.logs]
+    };
+}
+
+function syncOnlineGameState() {
+    if (!isOnlineGameActive() || isApplyingOnlineState) return;
+    activeGameRoom?.send('sync_game_state', createOnlineGameStateData());
+}
+
+function applyOnlineGameState(data: OnlineGameStateData) {
     endGameReason = '';
     queuedBotTurnId = null;
     selectedCardId = null;
     isResolvingTurnAction = false;
+    isApplyingOnlineState = true;
 
     const selfSessionId = activeGameRoom?.sessionId;
     const roomPlayers = currentRoomWaitState?.players ?? [];
     const selfIndex = roomPlayers.findIndex(player => player.id === selfSessionId);
-    localPlayerId = selfIndex >= 0 ? selfIndex : 0;
+    localPlayerId = selfIndex >= 0 ? selfIndex : localPlayerId;
+
+    const players = data.players.map(cloneOnlinePlayer);
 
     state = {
         deck: [...data.deck],
         burnedCard: data.burnedCard,
-        players: data.players.map(player => ({
-            ...player,
-            hand: [...player.hand],
-            discardPile: [...player.discardPile],
-            isBot: false
-        })),
+        players,
         currentTurnPlayerId: data.currentTurnPlayerId,
-        isGameOver: false,
-        winner: null,
+        isGameOver: data.isGameOver,
+        winner: data.winner ? players.find(player => player.id === data.winner?.id) ?? cloneOnlinePlayer(data.winner) : null,
         logs: [...data.logs],
         aiMemory: {}
     };
@@ -1533,6 +1568,15 @@ function applyOnlineGameData(data: OnlineGameData) {
     closeModal();
     showScene('game-scene');
     render();
+    isApplyingOnlineState = false;
+}
+
+function applyOnlineGameData(data: OnlineGameData) {
+    applyOnlineGameState({
+        ...data,
+        isGameOver: false,
+        winner: null
+    });
 }
 
 function initOnlineGame(roomState: RoomWaitViewState) {
@@ -1710,6 +1754,7 @@ function bindGameRoom(room: Room<unknown, SyncedRoomState>) {
     activeGameRoom?.removeAllListeners();
     activeGameRoom = room;
     onlineGameInitialized = false;
+    isApplyingOnlineState = false;
 
     room.onStateChange((state) => {
         renderRoomWaitArea(state);
@@ -1721,6 +1766,10 @@ function bindGameRoom(room: Room<unknown, SyncedRoomState>) {
 
     room.onMessage<OnlineGameData>('init_game_data', data => {
         applyOnlineGameData(data);
+    });
+
+    room.onMessage<OnlineGameStateData>('sync_game_state', data => {
+        applyOnlineGameState(data);
     });
 
     room.onLeave(() => {
@@ -1912,6 +1961,7 @@ function initGame(botCount: number) {
     endGameReason = '';
     localPlayerId = 0;
     onlineGameInitialized = false;
+    isApplyingOnlineState = false;
     queuedBotTurnId = null;
     selectedCardId = null;
     isResolvingTurnAction = false;

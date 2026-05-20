@@ -20,6 +20,7 @@ class LobbyException extends ServerError {
 export class LoveLetterRoom extends Room<{ state: GameRoomState }> {
     private password: string | null = null;
     private initialGameData: unknown | null = null;
+    private latestGameState: unknown | null = null;
 
     async onCreate(options: CreateRoomOptions = {}) {
         this.maxClients = 4;
@@ -75,13 +76,25 @@ export class LoveLetterRoom extends Room<{ state: GameRoomState }> {
             }
 
             this.initialGameData = data;
+            this.latestGameState = data;
             this.broadcast("init_game_data", data);
+        });
+
+        this.onMessage("sync_game_state", (client, data) => {
+            this.getPlayerOrThrow(client.sessionId);
+            if (!this.state.isGameStarted) {
+                throw new LobbyException("Cannot sync game state before the game starts.");
+            }
+
+            this.latestGameState = data;
+            this.broadcast("sync_game_state", data, { except: client });
         });
 
         this.onMessage("request_game_data", client => {
             this.getPlayerOrThrow(client.sessionId);
-            if (this.initialGameData) {
-                client.send("init_game_data", this.initialGameData);
+            const gameData = this.latestGameState ?? this.initialGameData;
+            if (gameData) {
+                client.send("init_game_data", gameData);
             }
         });
 

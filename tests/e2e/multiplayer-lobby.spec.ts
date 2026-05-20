@@ -68,6 +68,10 @@ test('two players can create, join, ready, and start through Colyseus state sync
         await expect(guestPage.locator('#player-area')).toContainText('Bob');
         await expect(hostPage.locator('#opponents-container')).toContainText('Bob');
         await expect(guestPage.locator('#opponents-container')).toContainText('Alice');
+
+        await hostPage.locator('#draw-btn').click();
+        await expect(guestPage.locator('#game-log')).toContainText('Alice');
+        await expect(guestPage.locator('.opponent-area', { hasText: 'Alice' }).locator('.hand-container .card')).toHaveCount(2);
     } finally {
         await guestContext.close();
         await hostContext.close();
