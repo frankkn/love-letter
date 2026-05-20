@@ -790,8 +790,7 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
             if (!actor.isBot) {
                 const cardUI = createCardUI(target.hand[0], false);
                 cardUI.style.margin = '0 auto';
-                showModal(`神父：看見 ${target.name} 的手牌`, cardUI.outerHTML, `<button class="modal-confirm-btn" id="modal-ok-btn">我了解了</button>${cancelButtonHTML()}`);
-                bindCancelRollback(rollback);
+                showModal(`神父：看見 ${target.name} 的手牌`, cardUI.outerHTML, `<button class="modal-confirm-btn" id="modal-ok-btn">我了解了</button>`);
                 document.getElementById('modal-ok-btn')!.onclick = async () => {
                     closeModal();
                     if (shouldEndTurn) await endTurn(actorId);
