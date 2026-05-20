@@ -1,6 +1,7 @@
 {
     "extends": "./tsconfig.server.json",
     "compilerOptions": {
+        "rootDir": ".",
         "outDir": ".temp/colyseus-test"
     },
     "include": [
