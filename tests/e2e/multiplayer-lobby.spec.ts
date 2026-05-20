@@ -62,6 +62,12 @@ test('two players can create, join, ready, and start through Colyseus state sync
 
         await expect(hostPage.locator('#room-wait-scene')).toHaveAttribute('data-game-started', 'true');
         await expect(guestPage.locator('#room-wait-scene')).toHaveAttribute('data-game-started', 'true');
+        await expect(hostPage.locator('#game-scene')).toBeVisible();
+        await expect(guestPage.locator('#game-scene')).toBeVisible();
+        await expect(hostPage.locator('#player-area')).toContainText('Alice');
+        await expect(guestPage.locator('#player-area')).toContainText('Bob');
+        await expect(hostPage.locator('#opponents-container')).toContainText('Bob');
+        await expect(guestPage.locator('#opponents-container')).toContainText('Alice');
     } finally {
         await guestContext.close();
         await hostContext.close();

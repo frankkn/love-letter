@@ -63,6 +63,19 @@ export class LoveLetterRoom extends Room<{ state: GameRoomState }> {
             this.lock();
         });
 
+        this.onMessage("init_game_data", (client, data) => {
+            const player = this.getPlayerOrThrow(client.sessionId);
+            if (!player.isHost) {
+                throw new LobbyException("Only the host can initialize the game.", 403);
+            }
+
+            if (!this.state.isGameStarted) {
+                throw new LobbyException("Cannot initialize the game before it starts.");
+            }
+
+            this.broadcast("init_game_data", data);
+        });
+
         console.log(`[LoveLetterRoom] Created room ${this.roomId}. Password protected: ${state.hasPassword}`);
     }
 

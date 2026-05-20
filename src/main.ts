@@ -125,6 +125,8 @@ let state: GameState;
 let selectedCardId: string | null = null;
 let isResolvingTurnAction = false;
 let queuedBotTurnId: number | null = null;
+let localPlayerId = 0;
+let onlineGameInitialized = false;
 
 interface LobbyRoomSummary {
     roomId: string;
@@ -324,12 +326,13 @@ function render() {
     deckCountEl.textContent = `牌堆剩餘：${state.deck.length}`;
     
     const currentPlayer = state.players[state.currentTurnPlayerId] ?? getAlivePlayers()[0] ?? state.players[0];
+    const localPlayer = state.players[localPlayerId] ?? state.players[0];
     renderPlayedCardStats();
     turnIndicatorEl.textContent = `當前回合：${currentPlayer.name}`;
     
     // 渲染對手區域
     opponentsContainerEl.innerHTML = '';
-    state.players.slice(1).forEach(bot => {
+    state.players.filter(player => player.id !== localPlayer.id).forEach(bot => {
         const botArea = document.createElement('div');
         const isActive = !state.isGameOver && state.currentTurnPlayerId === bot.id;
         const isWinner = state.winner?.id === bot.id;
@@ -358,8 +361,8 @@ function render() {
     });
 
     // 渲染玩家區域
-    const human = state.players[0];
-    const isHumanTurn = state.currentTurnPlayerId === 0;
+    const human = localPlayer;
+    const isHumanTurn = state.currentTurnPlayerId === human.id;
     const isHumanActive = !state.isGameOver && isHumanTurn;
     const isHumanWinner = state.winner?.id === human.id;
     playerAreaEl.className = `area ${human.isProtected ? 'protected' : ''} ${!human.isAlive ? 'eliminated' : ''} ${isHumanActive ? 'active-turn' : ''} ${isHumanWinner ? 'winner-area' : ''}`;
@@ -394,7 +397,7 @@ function render() {
             }
             if (isPlayable) {
                 selectedCardId = null;
-                handlePlayCardRequest(0, card);
+                handlePlayCardRequest(human.id, card);
             }
         };
         playerHandEl.appendChild(cardUI);
@@ -1384,6 +1387,14 @@ function setPreferredPlayerName(name: string) {
     localStorage.setItem('loveLetterPlayerName', name);
 }
 
+interface OnlineGameData {
+    deck: Card[];
+    burnedCard: Card | null;
+    players: Player[];
+    currentTurnPlayerId: number;
+    logs: string[];
+}
+
 function getConnectionErrorMessage(error: unknown): string {
     if (error instanceof Error && error.message) {
         return error.message;
@@ -1458,6 +1469,81 @@ function normalizeRoomWaitState(roomState: RoomWaitViewState | SyncedRoomState):
     };
 }
 
+function createOnlinePlayers(roomPlayers: RoomWaitPlayerView[]): Player[] {
+    return roomPlayers.map((roomPlayer, index) => ({
+        id: index,
+        name: roomPlayer.name,
+        isBot: false,
+        coins: 0,
+        hand: [],
+        isProtected: false,
+        isAlive: true,
+        discardPile: [],
+        isHandRevealed: false
+    }));
+}
+
+function createInitialOnlineGameData(roomState: RoomWaitViewState): OnlineGameData {
+    let deck = createDeck();
+    deck = shuffle(deck);
+    const burnedCard = deck.pop() || null;
+    const players = createOnlinePlayers(roomState.players);
+
+    players.forEach(player => {
+        player.hand = [deck.pop()!];
+    });
+
+    return {
+        deck,
+        burnedCard,
+        players,
+        currentTurnPlayerId: 0,
+        logs: ['多人遊戲開始，房主已同步初始牌局。']
+    };
+}
+
+function applyOnlineGameData(data: OnlineGameData) {
+    endGameReason = '';
+    queuedBotTurnId = null;
+    selectedCardId = null;
+    isResolvingTurnAction = false;
+
+    const selfSessionId = activeGameRoom?.sessionId;
+    const roomPlayers = currentRoomWaitState?.players ?? [];
+    const selfIndex = roomPlayers.findIndex(player => player.id === selfSessionId);
+    localPlayerId = selfIndex >= 0 ? selfIndex : 0;
+
+    state = {
+        deck: [...data.deck],
+        burnedCard: data.burnedCard,
+        players: data.players.map(player => ({
+            ...player,
+            hand: [...player.hand],
+            discardPile: [...player.discardPile],
+            isBot: false
+        })),
+        currentTurnPlayerId: data.currentTurnPlayerId,
+        isGameOver: false,
+        winner: null,
+        logs: [...data.logs],
+        aiMemory: {}
+    };
+
+    onlineGameInitialized = true;
+    showScene('game-scene');
+    render();
+}
+
+function initOnlineGame(roomState: RoomWaitViewState) {
+    if (onlineGameInitialized) return;
+
+    const selfPlayer = roomState.players.find(player => player.id === roomState.selfId);
+    if (!selfPlayer?.isHost) return;
+
+    const gameData = createInitialOnlineGameData(roomState);
+    activeGameRoom?.send('init_game_data', gameData);
+}
+
 function renderLobbyList(rooms: LobbyRoomSummary[]) {
     if (rooms.length === 0) {
         roomListContainerEl.innerHTML = `
@@ -1503,6 +1589,7 @@ function renderRoomWaitArea(roomState: RoomWaitViewState | SyncedRoomState) {
         if (!wasGameStarted) {
             showModal('\u904a\u6232\u958b\u59cb', '<p>\u623f\u9593\u72c0\u614b\u5df2\u540c\u6b65\uff0c\u6e96\u5099\u8f09\u5165\u591a\u4eba\u904a\u6232\u6230\u5834\u3002</p>', '<button class="modal-confirm-btn" id="game-started-ok-btn">\u78ba\u5b9a</button>');
             document.getElementById('game-started-ok-btn')!.onclick = closeModal;
+            initOnlineGame(normalizedState);
         }
     }
 
@@ -1616,6 +1703,7 @@ async function joinLobbyRoom(roomId: string) {
 function bindGameRoom(room: Room<unknown, SyncedRoomState>) {
     activeGameRoom?.removeAllListeners();
     activeGameRoom = room;
+    onlineGameInitialized = false;
 
     room.onStateChange((state) => {
         renderRoomWaitArea(state);
@@ -1623,6 +1711,10 @@ function bindGameRoom(room: Room<unknown, SyncedRoomState>) {
 
     room.onError((code, message) => {
         console.warn(`LoveLetterRoom error ${code}: ${message ?? ''}`);
+    });
+
+    room.onMessage<OnlineGameData>('init_game_data', data => {
+        applyOnlineGameData(data);
     });
 
     room.onLeave(() => {
@@ -1812,6 +1904,8 @@ document.querySelectorAll('.count-btn').forEach(btn => {
 // 10. 初始化
 function initGame(botCount: number) {
     endGameReason = '';
+    localPlayerId = 0;
+    onlineGameInitialized = false;
     queuedBotTurnId = null;
     selectedCardId = null;
     isResolvingTurnAction = false;
@@ -1889,6 +1983,6 @@ function startNextRound() {
     }
 }
 
-drawBtn.onclick = () => drawCard(0);
+drawBtn.onclick = () => drawCard(localPlayerId);
 initGame(1); // 預設進來時背景跑一個 (雖然會被 menu 蓋住)
 showScene('main-menu');
