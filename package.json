@@ -6,11 +6,15 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:server": "tsc -p tsconfig.server.json",
     "preview": "vite preview",
+    "start:server": "node dist-server/server/index.js",
     "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.9.1",
     "typescript": "^5.2.2",
     "vite": "^5.0.0"
   },

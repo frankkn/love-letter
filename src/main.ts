@@ -171,7 +171,8 @@ interface SyncedRoomState {
     };
 }
 
-const colyseusEndpoint = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.hostname}:2567`;
+const colyseusEndpoint = import.meta.env.VITE_COLYSEUS_ENDPOINT ||
+    `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.hostname}:2567`;
 const colyseusClient = new Client(colyseusEndpoint);
 let lobbyRoom: Room | null = null;
 let activeGameRoom: Room<unknown, SyncedRoomState> | null = null;

@@ -5,15 +5,12 @@
         "module": "NodeNext",
         "moduleResolution": "NodeNext",
         "rootDir": ".",
-        "outDir": ".temp/colyseus-test",
+        "outDir": "dist-server",
         "noEmit": false,
         "allowImportingTsExtensions": false,
         "isolatedModules": false,
         "useDefineForClassFields": false,
         "types": ["node"]
     },
-    "include": [
-        "src/server/**/*.ts",
-        "tests/support/**/*.ts"
-    ]
+    "include": ["src/server/**/*.ts"]
 }

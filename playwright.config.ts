@@ -14,7 +14,7 @@ export default defineConfig({
     },
     webServer: [
         {
-            command: 'npx tsc -p tsconfig.server.json && node .temp/colyseus-test/tests/support/colyseus-test-server.js',
+            command: 'npx tsc -p tsconfig.playwright-server.json && node .temp/colyseus-test/tests/support/colyseus-test-server.js',
             url: 'http://127.0.0.1:2567/health',
             timeout: 15_000,
             reuseExistingServer: false
