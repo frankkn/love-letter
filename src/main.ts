@@ -723,9 +723,9 @@ function findNextAlivePlayerId(afterPlayerId: number): number | null {
 function handoffTurnIfCurrentPlayerWasEliminated(eliminatedPlayerId: number) {
     if (
         state.isGameOver ||
-        isResolvingTurnAction ||
         state.currentTurnPlayerId !== eliminatedPlayerId
     ) {
+        syncOnlineGameState();
         return;
     }
 
@@ -734,16 +734,20 @@ function handoffTurnIfCurrentPlayerWasEliminated(eliminatedPlayerId: number) {
         if (survivors.length === 1) {
             endGame(survivors[0], `場上只剩下最後一名存活者`);
         }
+        syncOnlineGameStateThenRender();
         return;
     }
 
     const nextId = findNextAlivePlayerId(eliminatedPlayerId);
-    if (nextId === null) return;
+    if (nextId === null) {
+        syncOnlineGameStateThenRender();
+        return;
+    }
 
     state.currentTurnPlayerId = nextId;
     selectedCardId = null;
-    render();
-    syncOnlineGameState();
+    isResolvingTurnAction = false;
+    syncOnlineGameStateThenRender();
 
     if (state.players[nextId].isBot) {
         queueBotTurn(nextId);
@@ -781,7 +785,10 @@ async function finishEffectTurn(actorId: number, shouldEndTurn: boolean) {
 }
 
 async function endTurn(playerId: number) {
-    if (state.isGameOver) return;
+    if (state.isGameOver) {
+        syncOnlineGameStateThenRender();
+        return;
+    }
     
     checkEndConditions();
 
@@ -799,16 +806,14 @@ async function endTurn(playerId: number) {
             selectedCardId = null;
             isResolvingTurnAction = false;
             addLog("找不到下一位存活玩家，回合停止。");
-            render();
-            syncOnlineGameState();
+            syncOnlineGameStateThenRender();
             return;
         }
 
         state.currentTurnPlayerId = nextId;
         selectedCardId = null;
         isResolvingTurnAction = false;
-        render();
-        syncOnlineGameState();
+        syncOnlineGameStateThenRender();
 
         if (state.players[nextId].isBot) {
             // 不需要外部 setTimeout，因為 botTurn 內部會等待
@@ -1247,7 +1252,7 @@ function eliminate(playerId: number, reason: string) {
         handoffTurnIfCurrentPlayerWasEliminated(playerId);
     }
 
-    syncOnlineGameState();
+    syncOnlineGameStateThenRender();
 }
 
 function checkEndConditions() {
@@ -1693,6 +1698,11 @@ function createOnlineGameStateData(): OnlineGameStateData {
 function syncOnlineGameState() {
     if (!isOnlineGameActive() || isApplyingOnlineState) return;
     activeGameRoom?.send('sync_game_state', createOnlineGameStateData());
+}
+
+function syncOnlineGameStateThenRender() {
+    syncOnlineGameState();
+    render();
 }
 
 function isLocalEffectController(playerId: number) {
