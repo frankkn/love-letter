@@ -1766,26 +1766,35 @@ async function handlePendingForcedEffect() {
 }
 
 function applyOnlineGameState(data: OnlineGameStateData) {
+    const selfSessionId = activeGameRoom?.sessionId;
+    const roomPlayers = currentRoomWaitState?.players ?? [];
+    const selfIndex = roomPlayers.findIndex(player => player.id === selfSessionId);
+    if (selfIndex >= 0) {
+        localPlayerId = selfIndex;
+    }
+
     const shouldPreserveLocalInteraction = Boolean(
         isOnlineGameActive() &&
         isResolvingTurnAction &&
-        state.currentTurnPlayerId === localPlayerId &&
-        modalOverlay.style.display === 'flex'
+        data.currentTurnPlayerId === localPlayerId
     );
+
+    if (shouldPreserveLocalInteraction) {
+        pendingForcedEffect = data.pendingForcedEffect ? {
+            ...data.pendingForcedEffect,
+            card: { ...data.pendingForcedEffect.card }
+        } : pendingForcedEffect;
+        onlineGameInitialized = true;
+        return;
+    }
+
     isApplyingOnlineState = true;
 
     try {
         endGameReason = '';
         queuedBotTurnId = null;
-        if (!shouldPreserveLocalInteraction) {
-            selectedCardId = null;
-            isResolvingTurnAction = false;
-        }
-
-        const selfSessionId = activeGameRoom?.sessionId;
-        const roomPlayers = currentRoomWaitState?.players ?? [];
-        const selfIndex = roomPlayers.findIndex(player => player.id === selfSessionId);
-        localPlayerId = selfIndex >= 0 ? selfIndex : localPlayerId;
+        selectedCardId = null;
+        isResolvingTurnAction = false;
 
         const players = data.players.map(cloneOnlinePlayer);
 
@@ -1805,9 +1814,7 @@ function applyOnlineGameState(data: OnlineGameStateData) {
         } : null;
 
         onlineGameInitialized = true;
-        if (!shouldPreserveLocalInteraction) {
-            closeModal();
-        }
+        closeModal();
         showScene('game-scene');
         render();
         window.requestAnimationFrame(() => render());
