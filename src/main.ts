@@ -122,6 +122,7 @@ function shuffle<T>(array: T[]): T[] {
 let state: GameState;
 let selectedCardId: string | null = null;
 let isResolvingTurnAction = false;
+let queuedBotTurnId: number | null = null;
 
 // 4. DOM 元素
 const mainMenuEl = document.getElementById('main-menu')!;
@@ -508,6 +509,35 @@ function findNextAlivePlayerId(afterPlayerId: number): number | null {
     return null;
 }
 
+function queueBotTurn(botId: number) {
+    queuedBotTurnId = botId;
+    window.setTimeout(() => {
+        if (
+            queuedBotTurnId !== botId ||
+            state.isGameOver ||
+            state.currentTurnPlayerId !== botId ||
+            !state.players[botId]?.isAlive
+        ) {
+            return;
+        }
+
+        queuedBotTurnId = null;
+        void botTurn(botId);
+    }, 0);
+}
+
+async function finishEffectTurn(actorId: number, shouldEndTurn: boolean) {
+    if (!shouldEndTurn) {
+        isResolvingTurnAction = false;
+        render();
+        return;
+    }
+
+    if (!state.isGameOver) {
+        await endTurn(actorId);
+    }
+}
+
 async function endTurn(playerId: number) {
     if (state.isGameOver) return;
     
@@ -538,7 +568,7 @@ async function endTurn(playerId: number) {
 
         if (state.players[nextId].isBot) {
             // 不需要外部 setTimeout，因為 botTurn 內部會等待
-            void botTurn(nextId);
+            queueBotTurn(nextId);
         }
     }
 }
@@ -738,7 +768,7 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
                 render();
                 await sleep(2000);
                 eliminate(targetId, "男爵比輸了");
-                if (shouldEndTurn && !state.isGameOver) await endTurn(actorId);
+                await finishEffectTurn(actorId, shouldEndTurn);
             } else if (aVal < tVal) {
                 card.actionHints = [
                     { text: `🎯 對 ${target.name} 比大小` },
@@ -755,7 +785,7 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
                 render();
                 await sleep(2000);
                 eliminate(actorId, "男爵比輸了");
-                if (shouldEndTurn && !state.isGameOver) await endTurn(actorId);
+                await finishEffectTurn(actorId, shouldEndTurn);
             } else {
                 card.actionHints = [
                     { text: `🎯 對 ${target.name} 比大小` },
@@ -968,6 +998,7 @@ function showChampionModal() {
 function endGame(winner: Player, reason: string) {
     if (state.isGameOver) return;
 
+    queuedBotTurnId = null;
     selectedCardId = null;
     isResolvingTurnAction = false;
     state.isGameOver = true;
@@ -1215,6 +1246,7 @@ document.querySelectorAll('.count-btn').forEach(btn => {
 // 10. 初始化
 function initGame(botCount: number) {
     endGameReason = '';
+    queuedBotTurnId = null;
     selectedCardId = null;
     isResolvingTurnAction = false;
     let deck = createDeck();
@@ -1259,6 +1291,7 @@ function startNextRound() {
     if (!state.winner) return;
 
     endGameReason = '';
+    queuedBotTurnId = null;
     selectedCardId = null;
     isResolvingTurnAction = false;
     const firstPlayerId = state.winner.id;
@@ -1286,7 +1319,7 @@ function startNextRound() {
     render();
 
     if (state.players[firstPlayerId].isBot) {
-        botTurn(firstPlayerId);
+        queueBotTurn(firstPlayerId);
     }
 }
 
