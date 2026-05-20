@@ -1,4 +1,5 @@
 import './style.css'
+import { Client, type Room, type RoomAvailable } from 'colyseus.js';
 import guardImage from './assets/cards/guard.png';
 import priestImage from './assets/cards/priest.png';
 import baronImage from './assets/cards/baron.png';
@@ -131,6 +132,11 @@ interface LobbyRoomSummary {
     hasPassword: boolean;
 }
 
+interface LobbyRoomMetadata {
+    hasPassword?: boolean;
+    isGameStarted?: boolean;
+}
+
 interface RoomWaitPlayerView {
     id: string;
     name: string;
@@ -145,11 +151,26 @@ interface RoomWaitViewState {
     isGameStarted: boolean;
 }
 
-const localLobbyPlayerId = 'local-player';
-let lobbyRooms: LobbyRoomSummary[] = [
-    { roomId: 'LL-2048', playerCount: 1, maxClients: 4, hasPassword: false },
-    { roomId: 'LL-7319', playerCount: 3, maxClients: 4, hasPassword: true }
-];
+interface SyncedRoomPlayerState {
+    id: string;
+    name: string;
+    isReady: boolean;
+    isHost: boolean;
+}
+
+interface SyncedRoomState {
+    roomId: string;
+    isGameStarted: boolean;
+    players: Map<string, SyncedRoomPlayerState> | Record<string, SyncedRoomPlayerState> | {
+        values: () => IterableIterator<SyncedRoomPlayerState>;
+    };
+}
+
+const colyseusEndpoint = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.hostname}:2567`;
+const colyseusClient = new Client(colyseusEndpoint);
+let lobbyRoom: Room | null = null;
+let activeGameRoom: Room<SyncedRoomState> | null = null;
+let lobbyRooms: LobbyRoomSummary[] = [];
 let currentRoomWaitState: RoomWaitViewState | null = null;
 
 // 4. DOM 元素
@@ -1349,6 +1370,69 @@ function escapeHTML(value: string): string {
     })[char]!);
 }
 
+function getPreferredPlayerName(): string {
+    return localStorage.getItem('loveLetterPlayerName') || '玩家';
+}
+
+function setPreferredPlayerName(name: string) {
+    localStorage.setItem('loveLetterPlayerName', name);
+}
+
+function toLobbyRoomSummary(room: RoomAvailable<LobbyRoomMetadata>): LobbyRoomSummary {
+    return {
+        roomId: room.roomId,
+        playerCount: room.clients,
+        maxClients: room.maxClients,
+        hasPassword: room.metadata?.hasPassword ?? false
+    };
+}
+
+function upsertLobbyRoom(room: RoomAvailable<LobbyRoomMetadata>) {
+    if (room.name !== 'love_letter') return;
+
+    const summary = toLobbyRoomSummary(room);
+    const existingIndex = lobbyRooms.findIndex(candidate => candidate.roomId === summary.roomId);
+    if (existingIndex >= 0) {
+        lobbyRooms[existingIndex] = summary;
+    } else {
+        lobbyRooms = [summary, ...lobbyRooms];
+    }
+
+    renderLobbyList(lobbyRooms);
+}
+
+function removeLobbyRoom(roomId: string) {
+    lobbyRooms = lobbyRooms.filter(room => room.roomId !== roomId);
+    renderLobbyList(lobbyRooms);
+}
+
+function getSyncedPlayers(state: SyncedRoomState): RoomWaitPlayerView[] {
+    const players = state.players;
+    if (players instanceof Map) {
+        return Array.from(players.values());
+    }
+
+    if ('values' in players && typeof players.values === 'function') {
+        return Array.from(players.values());
+    }
+
+    return Object.values(players);
+}
+
+function normalizeRoomWaitState(roomState: RoomWaitViewState | SyncedRoomState): RoomWaitViewState {
+    if (Array.isArray((roomState as RoomWaitViewState).players)) {
+        return roomState as RoomWaitViewState;
+    }
+
+    const syncedState = roomState as SyncedRoomState;
+    return {
+        roomId: syncedState.roomId || activeGameRoom?.roomId || '-',
+        players: getSyncedPlayers(syncedState),
+        selfId: activeGameRoom?.sessionId || '',
+        isGameStarted: syncedState.isGameStarted
+    };
+}
+
 function renderLobbyList(rooms: LobbyRoomSummary[]) {
     if (rooms.length === 0) {
         roomListContainerEl.innerHTML = `
@@ -1383,12 +1467,19 @@ function renderLobbyList(rooms: LobbyRoomSummary[]) {
     });
 }
 
-function renderRoomWaitArea(roomState: RoomWaitViewState) {
-    currentRoomIdEl.textContent = roomState.roomId;
-    roomPlayerCountEl.textContent = `${roomState.players.length}/4`;
+function renderRoomWaitArea(roomState: RoomWaitViewState | SyncedRoomState) {
+    const normalizedState = normalizeRoomWaitState(roomState);
+    currentRoomWaitState = normalizedState;
+
+    if (normalizedState.isGameStarted) {
+        console.log("房間狀態變更：遊戲開始，準備加載遊戲戰場");
+    }
+
+    currentRoomIdEl.textContent = normalizedState.roomId;
+    roomPlayerCountEl.textContent = `${normalizedState.players.length}/4`;
 
     roomPlayerListEl.innerHTML = Array.from({ length: 4 }, (_, index) => {
-        const player = roomState.players[index];
+        const player = normalizedState.players[index];
         if (!player) {
             return `
                 <div class="room-player-row empty-slot">
@@ -1400,7 +1491,7 @@ function renderRoomWaitArea(roomState: RoomWaitViewState) {
 
         const statusText = player.isReady || player.isHost ? '✔️ 已準備' : '⏳ 準備中';
         return `
-            <div class="room-player-row ${player.id === roomState.selfId ? 'self-player' : ''}">
+            <div class="room-player-row ${player.id === normalizedState.selfId ? 'self-player' : ''}">
                 <div class="room-player-name">
                     <strong>${escapeHTML(player.name)}</strong>
                     ${player.isHost ? '<span class="host-badge">👑 房主</span>' : ''}
@@ -1410,18 +1501,20 @@ function renderRoomWaitArea(roomState: RoomWaitViewState) {
         `;
     }).join('');
 
-    const selfPlayer = roomState.players.find(player => player.id === roomState.selfId);
+    const selfPlayer = normalizedState.players.find(player => player.id === normalizedState.selfId);
     const isHost = selfPlayer?.isHost ?? false;
-    const guestsReady = roomState.players
+    const guestsReady = normalizedState.players
         .filter(player => !player.isHost)
         .every(player => player.isReady);
     readyToggleBtn.textContent = isHost ? '開始遊戲' : (selfPlayer?.isReady ? '取消準備' : '準備');
-    readyToggleBtn.disabled = isHost && (roomState.players.length < 2 || !guestsReady);
+    readyToggleBtn.disabled = isHost && (normalizedState.players.length < 2 || !guestsReady);
 }
 
 function openCreateRoomModal() {
     showModal('創建房間', `
         <div class="create-room-form">
+            <label class="field-label" for="create-room-player-name">玩家名稱</label>
+            <input id="create-room-player-name" class="modal-input" type="text" value="${escapeHTML(getPreferredPlayerName())}" autocomplete="nickname" />
             <label class="checkbox-row">
                 <input id="create-room-use-password" type="checkbox" />
                 <span>設定房間密碼</span>
@@ -1435,61 +1528,107 @@ function openCreateRoomModal() {
     `);
 
     document.getElementById('cancel-create-room-btn')!.onclick = closeModal;
-    document.getElementById('confirm-create-room-btn')!.onclick = () => {
+    document.getElementById('confirm-create-room-btn')!.onclick = async () => {
+        const playerName = (document.getElementById('create-room-player-name') as HTMLInputElement).value.trim() || '玩家';
         const usePassword = (document.getElementById('create-room-use-password') as HTMLInputElement).checked;
         const password = (document.getElementById('create-room-password') as HTMLInputElement).value.trim();
-        const roomId = `LL-${Math.floor(1000 + Math.random() * 9000)}`;
-        const hasPassword = usePassword && password.length > 0;
+        setPreferredPlayerName(playerName);
 
-        lobbyRooms = [{ roomId, playerCount: 1, maxClients: 4, hasPassword }, ...lobbyRooms];
-        currentRoomWaitState = {
-            roomId,
-            selfId: localLobbyPlayerId,
-            isGameStarted: false,
-            players: [
-                { id: localLobbyPlayerId, name: '玩家', isHost: true, isReady: true }
-            ]
-        };
-        closeModal();
-        showScene('room-wait-scene');
-        renderRoomWaitArea(currentRoomWaitState);
+        try {
+            const room = await colyseusClient.create<SyncedRoomState>('love_letter', {
+                name: playerName,
+                password: usePassword && password.length > 0 ? password : undefined
+            });
+            closeModal();
+            bindGameRoom(room);
+        } catch (error) {
+            showModal('創建房間失敗', `<p>${escapeHTML(error instanceof Error ? error.message : '無法建立房間。')}</p>`, '<button class="modal-confirm-btn" id="create-room-error-ok-btn">確定</button>');
+            document.getElementById('create-room-error-ok-btn')!.onclick = closeModal;
+        }
     };
 }
 
-function joinLobbyRoom(roomId: string) {
-    const room = lobbyRooms.find(candidate => candidate.roomId === roomId);
-    if (!room || room.playerCount >= room.maxClients) return;
+async function joinLobbyRoom(roomId: string) {
+    const roomSummary = lobbyRooms.find(candidate => candidate.roomId === roomId);
+    if (!roomSummary || roomSummary.playerCount >= roomSummary.maxClients) return;
 
-    if (room.hasPassword) {
-        const password = prompt('請輸入房間密碼');
-        if (password === null) return;
+    const playerName = prompt('請輸入玩家名稱', getPreferredPlayerName())?.trim() || getPreferredPlayerName();
+    const password = roomSummary.hasPassword ? prompt('請輸入房間密碼') : undefined;
+    if (roomSummary.hasPassword && password === null) return;
+    setPreferredPlayerName(playerName);
+
+    try {
+        const room = await colyseusClient.joinById<SyncedRoomState>(roomId, {
+            name: playerName,
+            password: password || undefined
+        });
+        bindGameRoom(room);
+    } catch (error) {
+        showModal('加入房間失敗', `<p>${escapeHTML(error instanceof Error ? error.message : '無法加入房間。')}</p>`, '<button class="modal-confirm-btn" id="join-room-error-ok-btn">確定</button>');
+        document.getElementById('join-room-error-ok-btn')!.onclick = closeModal;
     }
+}
 
-    room.playerCount += 1;
-    currentRoomWaitState = {
-        roomId: room.roomId,
-        selfId: localLobbyPlayerId,
-        isGameStarted: false,
-        players: [
-            { id: 'host-player', name: '房主', isHost: true, isReady: true },
-            { id: localLobbyPlayerId, name: '玩家', isHost: false, isReady: false },
-            ...Array.from({ length: room.playerCount - 2 }, (_, index) => ({
-                id: `guest-${index}`,
-                name: `玩家 ${index + 2}`,
-                isHost: false,
-                isReady: index % 2 === 0
-            }))
-        ]
-    };
+function bindGameRoom(room: Room<SyncedRoomState>) {
+    activeGameRoom?.removeAllListeners();
+    activeGameRoom = room;
+
+    room.onStateChange((state) => {
+        renderRoomWaitArea(state);
+    });
+
+    room.onError((code, message) => {
+        console.warn(`LoveLetterRoom error ${code}: ${message ?? ''}`);
+    });
+
+    room.onLeave(() => {
+        if (activeGameRoom === room) {
+            activeGameRoom = null;
+            currentRoomWaitState = null;
+            showScene('lobby-scene');
+        }
+    });
 
     showScene('room-wait-scene');
-    renderRoomWaitArea(currentRoomWaitState);
+    renderRoomWaitArea(room.state);
 }
 
-function leaveCurrentRoom() {
-    if (currentRoomWaitState) {
-        const room = lobbyRooms.find(candidate => candidate.roomId === currentRoomWaitState?.roomId);
-        if (room) room.playerCount = Math.max(0, room.playerCount - 1);
+async function connectLobbyRoom() {
+    if (lobbyRoom) {
+        renderLobbyList(lobbyRooms);
+        return;
+    }
+
+    try {
+        lobbyRoom = await colyseusClient.joinOrCreate('lobby');
+        lobbyRoom.onMessage<RoomAvailable<LobbyRoomMetadata>[] | { rooms?: RoomAvailable<LobbyRoomMetadata>[] }>('rooms', message => {
+            const rooms = Array.isArray(message) ? message : message.rooms ?? [];
+            lobbyRooms = rooms
+                .filter(room => room.name === 'love_letter')
+                .map(toLobbyRoomSummary);
+            renderLobbyList(lobbyRooms);
+        });
+        lobbyRoom.onMessage<RoomAvailable<LobbyRoomMetadata>>('+', upsertLobbyRoom);
+        lobbyRoom.onMessage<RoomAvailable<LobbyRoomMetadata> | string>('-', message => {
+            removeLobbyRoom(typeof message === 'string' ? message : message.roomId);
+        });
+        renderLobbyList(lobbyRooms);
+    } catch (error) {
+        console.warn('Lobby connection failed:', error);
+        roomListContainerEl.innerHTML = `
+            <div class="empty-lobby-state">
+                <strong>無法連線至 Colyseus 大廳</strong>
+                <span>請確認後端伺服器已啟動並註冊 lobby 與 love_letter 房間。</span>
+            </div>
+        `;
+    }
+}
+
+async function leaveCurrentRoom() {
+    if (activeGameRoom) {
+        const leavingRoom = activeGameRoom;
+        activeGameRoom = null;
+        await leavingRoom.leave();
     }
     currentRoomWaitState = null;
     renderLobbyList(lobbyRooms);
@@ -1503,15 +1642,11 @@ function toggleReadyOrStartGame() {
     if (!selfPlayer) return;
 
     if (selfPlayer.isHost) {
-        currentRoomWaitState.isGameStarted = true;
-        showModal('準備開始', '<p>所有玩家都已就緒。下一階段會接上 Colyseus 遊戲同步流程。</p>', '<button class="modal-confirm-btn" id="room-start-ok-btn">確定</button>');
-        document.getElementById('room-start-ok-btn')!.onclick = closeModal;
-        renderRoomWaitArea(currentRoomWaitState);
+        activeGameRoom?.send('start_game');
         return;
     }
 
-    selfPlayer.isReady = !selfPlayer.isReady;
-    renderRoomWaitArea(currentRoomWaitState);
+    activeGameRoom?.send('toggle_ready');
 }
 
 // 9. 選單邏輯
@@ -1523,14 +1658,14 @@ function showScene(sceneId: 'main-menu' | 'mode-select' | 'bot-count-select' | '
 document.getElementById('start-game-btn')!.onclick = () => showScene('mode-select');
 document.getElementById('back-to-menu-btn')!.onclick = () => showScene('main-menu');
 document.getElementById('local-mode-btn')!.onclick = () => showScene('bot-count-select');
-document.getElementById('online-mode-btn')!.onclick = () => {
-    renderLobbyList(lobbyRooms);
+document.getElementById('online-mode-btn')!.onclick = async () => {
     showScene('lobby-scene');
+    await connectLobbyRoom();
 };
 document.getElementById('back-to-mode-btn')!.onclick = () => showScene('mode-select');
 document.getElementById('back-to-mode-from-lobby-btn')!.onclick = () => showScene('mode-select');
 document.getElementById('create-room-btn')!.onclick = openCreateRoomModal;
-document.getElementById('refresh-room-list-btn')!.onclick = () => renderLobbyList(lobbyRooms);
+document.getElementById('refresh-room-list-btn')!.onclick = () => void connectLobbyRoom();
 document.getElementById('leave-room-btn')!.onclick = leaveCurrentRoom;
 readyToggleBtn.onclick = toggleReadyOrStartGame;
 document.getElementById('back-home-btn')!.onclick = () => {

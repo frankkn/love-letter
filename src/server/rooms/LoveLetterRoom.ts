@@ -20,7 +20,7 @@ class LobbyException extends ServerError {
 export class LoveLetterRoom extends Room<{ state: GameRoomState }> {
     private password: string | null = null;
 
-    onCreate(options: CreateRoomOptions = {}) {
+    async onCreate(options: CreateRoomOptions = {}) {
         this.maxClients = 4;
 
         this.password = options.password?.trim() || null;
@@ -29,6 +29,10 @@ export class LoveLetterRoom extends Room<{ state: GameRoomState }> {
         state.roomId = this.roomId;
         state.hasPassword = this.password !== null;
         this.setState(state);
+        await this.setMetadata({
+            hasPassword: state.hasPassword,
+            isGameStarted: state.isGameStarted
+        });
 
         this.onMessage("toggle_ready", client => {
             const player = this.getPlayerOrThrow(client.sessionId);
@@ -55,6 +59,7 @@ export class LoveLetterRoom extends Room<{ state: GameRoomState }> {
             }
 
             this.state.isGameStarted = true;
+            void this.setMetadata({ isGameStarted: true });
             this.lock();
         });
 
