@@ -124,11 +124,46 @@ let selectedCardId: string | null = null;
 let isResolvingTurnAction = false;
 let queuedBotTurnId: number | null = null;
 
+interface LobbyRoomSummary {
+    roomId: string;
+    playerCount: number;
+    maxClients: number;
+    hasPassword: boolean;
+}
+
+interface RoomWaitPlayerView {
+    id: string;
+    name: string;
+    isReady: boolean;
+    isHost: boolean;
+}
+
+interface RoomWaitViewState {
+    roomId: string;
+    players: RoomWaitPlayerView[];
+    selfId: string;
+    isGameStarted: boolean;
+}
+
+const localLobbyPlayerId = 'local-player';
+let lobbyRooms: LobbyRoomSummary[] = [
+    { roomId: 'LL-2048', playerCount: 1, maxClients: 4, hasPassword: false },
+    { roomId: 'LL-7319', playerCount: 3, maxClients: 4, hasPassword: true }
+];
+let currentRoomWaitState: RoomWaitViewState | null = null;
+
 // 4. DOM 元素
 const mainMenuEl = document.getElementById('main-menu')!;
 const modeSelectEl = document.getElementById('mode-select')!;
 const botCountSelectEl = document.getElementById('bot-count-select')!;
+const lobbySceneEl = document.getElementById('lobby-scene')!;
+const roomWaitSceneEl = document.getElementById('room-wait-scene')!;
 const gameSceneEl = document.getElementById('game-scene')!;
+const roomListContainerEl = document.getElementById('room-list-container')!;
+const currentRoomIdEl = document.getElementById('current-room-id')!;
+const roomPlayerCountEl = document.getElementById('room-player-count')!;
+const roomPlayerListEl = document.getElementById('room-player-list')!;
+const readyToggleBtn = document.getElementById('ready-toggle-btn') as HTMLButtonElement;
 const playedCardStatsEl = document.getElementById('played-card-stats')!;
 const opponentsContainerEl = document.getElementById('opponents-container')!;
 const playerAreaEl = document.getElementById('player-area')!;
@@ -1304,16 +1339,200 @@ async function botTurn(botId: number) {
     await handlePlayCardRequest(botId, cardToPlay);
 }
 
+function escapeHTML(value: string): string {
+    return value.replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    })[char]!);
+}
+
+function renderLobbyList(rooms: LobbyRoomSummary[]) {
+    if (rooms.length === 0) {
+        roomListContainerEl.innerHTML = `
+            <div class="empty-lobby-state">
+                <strong>目前沒有可加入的房間</strong>
+                <span>建立一個新房間，等待其他玩家加入。</span>
+            </div>
+        `;
+        return;
+    }
+
+    roomListContainerEl.innerHTML = rooms.map(room => `
+        <div class="room-list-row" data-room-id="${escapeHTML(room.roomId)}">
+            <div class="room-cell room-id-cell">
+                <span class="room-label">房間 ID</span>
+                <strong>${escapeHTML(room.roomId)}</strong>
+            </div>
+            <div class="room-cell">
+                <span class="room-label">人數</span>
+                <strong>${room.playerCount}/${room.maxClients}</strong>
+            </div>
+            <div class="room-cell">
+                <span class="room-label">密碼</span>
+                <span class="password-badge ${room.hasPassword ? 'locked' : 'open'}">${room.hasPassword ? '需要密碼' : '公開房間'}</span>
+            </div>
+            <button class="join-room-btn menu-btn primary" data-room-id="${escapeHTML(room.roomId)}" ${room.playerCount >= room.maxClients ? 'disabled' : ''}>加入</button>
+        </div>
+    `).join('');
+
+    roomListContainerEl.querySelectorAll<HTMLButtonElement>('.join-room-btn').forEach(button => {
+        button.onclick = () => joinLobbyRoom(button.dataset.roomId!);
+    });
+}
+
+function renderRoomWaitArea(roomState: RoomWaitViewState) {
+    currentRoomIdEl.textContent = roomState.roomId;
+    roomPlayerCountEl.textContent = `${roomState.players.length}/4`;
+
+    roomPlayerListEl.innerHTML = Array.from({ length: 4 }, (_, index) => {
+        const player = roomState.players[index];
+        if (!player) {
+            return `
+                <div class="room-player-row empty-slot">
+                    <span>等待玩家加入</span>
+                    <span class="player-status">空位</span>
+                </div>
+            `;
+        }
+
+        const statusText = player.isReady || player.isHost ? '✔️ 已準備' : '⏳ 準備中';
+        return `
+            <div class="room-player-row ${player.id === roomState.selfId ? 'self-player' : ''}">
+                <div class="room-player-name">
+                    <strong>${escapeHTML(player.name)}</strong>
+                    ${player.isHost ? '<span class="host-badge">👑 房主</span>' : ''}
+                </div>
+                <span class="player-status ${player.isReady || player.isHost ? 'ready' : 'waiting'}">${statusText}</span>
+            </div>
+        `;
+    }).join('');
+
+    const selfPlayer = roomState.players.find(player => player.id === roomState.selfId);
+    const isHost = selfPlayer?.isHost ?? false;
+    const guestsReady = roomState.players
+        .filter(player => !player.isHost)
+        .every(player => player.isReady);
+    readyToggleBtn.textContent = isHost ? '開始遊戲' : (selfPlayer?.isReady ? '取消準備' : '準備');
+    readyToggleBtn.disabled = isHost && (roomState.players.length < 2 || !guestsReady);
+}
+
+function openCreateRoomModal() {
+    showModal('創建房間', `
+        <div class="create-room-form">
+            <label class="checkbox-row">
+                <input id="create-room-use-password" type="checkbox" />
+                <span>設定房間密碼</span>
+            </label>
+            <label class="field-label" for="create-room-password">密碼</label>
+            <input id="create-room-password" class="modal-input" type="password" placeholder="不填代表公開房間" autocomplete="off" />
+        </div>
+    `, `
+        <button class="modal-confirm-btn" id="confirm-create-room-btn">創建</button>
+        <button class="modal-cancel-btn" id="cancel-create-room-btn">取消</button>
+    `);
+
+    document.getElementById('cancel-create-room-btn')!.onclick = closeModal;
+    document.getElementById('confirm-create-room-btn')!.onclick = () => {
+        const usePassword = (document.getElementById('create-room-use-password') as HTMLInputElement).checked;
+        const password = (document.getElementById('create-room-password') as HTMLInputElement).value.trim();
+        const roomId = `LL-${Math.floor(1000 + Math.random() * 9000)}`;
+        const hasPassword = usePassword && password.length > 0;
+
+        lobbyRooms = [{ roomId, playerCount: 1, maxClients: 4, hasPassword }, ...lobbyRooms];
+        currentRoomWaitState = {
+            roomId,
+            selfId: localLobbyPlayerId,
+            isGameStarted: false,
+            players: [
+                { id: localLobbyPlayerId, name: '玩家', isHost: true, isReady: true }
+            ]
+        };
+        closeModal();
+        showScene('room-wait-scene');
+        renderRoomWaitArea(currentRoomWaitState);
+    };
+}
+
+function joinLobbyRoom(roomId: string) {
+    const room = lobbyRooms.find(candidate => candidate.roomId === roomId);
+    if (!room || room.playerCount >= room.maxClients) return;
+
+    if (room.hasPassword) {
+        const password = prompt('請輸入房間密碼');
+        if (password === null) return;
+    }
+
+    room.playerCount += 1;
+    currentRoomWaitState = {
+        roomId: room.roomId,
+        selfId: localLobbyPlayerId,
+        isGameStarted: false,
+        players: [
+            { id: 'host-player', name: '房主', isHost: true, isReady: true },
+            { id: localLobbyPlayerId, name: '玩家', isHost: false, isReady: false },
+            ...Array.from({ length: room.playerCount - 2 }, (_, index) => ({
+                id: `guest-${index}`,
+                name: `玩家 ${index + 2}`,
+                isHost: false,
+                isReady: index % 2 === 0
+            }))
+        ]
+    };
+
+    showScene('room-wait-scene');
+    renderRoomWaitArea(currentRoomWaitState);
+}
+
+function leaveCurrentRoom() {
+    if (currentRoomWaitState) {
+        const room = lobbyRooms.find(candidate => candidate.roomId === currentRoomWaitState?.roomId);
+        if (room) room.playerCount = Math.max(0, room.playerCount - 1);
+    }
+    currentRoomWaitState = null;
+    renderLobbyList(lobbyRooms);
+    showScene('lobby-scene');
+}
+
+function toggleReadyOrStartGame() {
+    if (!currentRoomWaitState) return;
+
+    const selfPlayer = currentRoomWaitState.players.find(player => player.id === currentRoomWaitState?.selfId);
+    if (!selfPlayer) return;
+
+    if (selfPlayer.isHost) {
+        currentRoomWaitState.isGameStarted = true;
+        showModal('準備開始', '<p>所有玩家都已就緒。下一階段會接上 Colyseus 遊戲同步流程。</p>', '<button class="modal-confirm-btn" id="room-start-ok-btn">確定</button>');
+        document.getElementById('room-start-ok-btn')!.onclick = closeModal;
+        renderRoomWaitArea(currentRoomWaitState);
+        return;
+    }
+
+    selfPlayer.isReady = !selfPlayer.isReady;
+    renderRoomWaitArea(currentRoomWaitState);
+}
+
 // 9. 選單邏輯
-function showScene(sceneId: 'main-menu' | 'mode-select' | 'bot-count-select' | 'game-scene') {
-    [mainMenuEl, modeSelectEl, botCountSelectEl, gameSceneEl].forEach(el => el.style.display = 'none');
+function showScene(sceneId: 'main-menu' | 'mode-select' | 'bot-count-select' | 'lobby-scene' | 'room-wait-scene' | 'game-scene') {
+    [mainMenuEl, modeSelectEl, botCountSelectEl, lobbySceneEl, roomWaitSceneEl, gameSceneEl].forEach(el => el.style.display = 'none');
     document.getElementById(sceneId)!.style.display = 'flex';
 }
 
 document.getElementById('start-game-btn')!.onclick = () => showScene('mode-select');
 document.getElementById('back-to-menu-btn')!.onclick = () => showScene('main-menu');
 document.getElementById('local-mode-btn')!.onclick = () => showScene('bot-count-select');
+document.getElementById('online-mode-btn')!.onclick = () => {
+    renderLobbyList(lobbyRooms);
+    showScene('lobby-scene');
+};
 document.getElementById('back-to-mode-btn')!.onclick = () => showScene('mode-select');
+document.getElementById('back-to-mode-from-lobby-btn')!.onclick = () => showScene('mode-select');
+document.getElementById('create-room-btn')!.onclick = openCreateRoomModal;
+document.getElementById('refresh-room-list-btn')!.onclick = () => renderLobbyList(lobbyRooms);
+document.getElementById('leave-room-btn')!.onclick = leaveCurrentRoom;
+readyToggleBtn.onclick = toggleReadyOrStartGame;
 document.getElementById('back-home-btn')!.onclick = () => {
     if (confirm("確定要放棄目前戰局並返回主選單嗎？")) showScene('main-menu');
 };

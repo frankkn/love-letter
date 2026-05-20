@@ -39,7 +39,7 @@
       <div id="mode-select" class="area menu-container" style="display: none;">
         <h2>選擇遊戲模式</h2>
         <div class="menu-buttons">
-          <button id="online-mode-btn" class="menu-btn" disabled>玩家對戰 (連線模式) <br><small>(待稍後用 Colyseus 實作)</small></button>
+          <button id="online-mode-btn" class="menu-btn primary">多人連線大廳 <br><small>Colyseus 房間等待系統</small></button>
           <button id="local-mode-btn" class="menu-btn primary">電腦對戰 (單機模式)</button>
           <button id="back-to-menu-btn" class="menu-btn secondary">返回</button>
         </div>
@@ -54,6 +54,42 @@
           <button class="count-btn" data-count="3">3 人</button>
         </div>
         <button id="back-to-mode-btn" class="menu-btn secondary" style="margin-top: 20px;">返回</button>
+      </div>
+
+      <!-- 多人連線大廳 -->
+      <div id="lobby-scene" class="area lobby-scene" style="display: none;">
+        <div class="scene-header">
+          <div>
+            <h2>多人連線大廳</h2>
+            <p>建立或加入一個 2-4 人的情書房間。</p>
+          </div>
+          <button id="back-to-mode-from-lobby-btn" class="menu-btn secondary">返回</button>
+        </div>
+
+        <div class="lobby-actions">
+          <button id="create-room-btn" class="menu-btn primary">創建房間</button>
+          <button id="refresh-room-list-btn" class="menu-btn secondary">重新整理</button>
+        </div>
+
+        <div id="room-list-container" class="room-list-container" aria-live="polite"></div>
+      </div>
+
+      <!-- 房間等待畫面 -->
+      <div id="room-wait-scene" class="area room-wait-scene" style="display: none;">
+        <div class="scene-header">
+          <div>
+            <h2>房間等待中</h2>
+            <p>房間 ID：<strong id="current-room-id">-</strong></p>
+          </div>
+          <span id="room-player-count" class="room-count-badge">0/4</span>
+        </div>
+
+        <div id="room-player-list" class="room-player-list" aria-live="polite"></div>
+
+        <div class="room-wait-actions">
+          <button id="leave-room-btn" class="menu-btn secondary">離開房間</button>
+          <button id="ready-toggle-btn" class="menu-btn primary">準備</button>
+        </div>
       </div>
 
       <!-- 遊戲場景 -->
