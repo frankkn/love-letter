@@ -1384,6 +1384,24 @@ function setPreferredPlayerName(name: string) {
     localStorage.setItem('loveLetterPlayerName', name);
 }
 
+function getConnectionErrorMessage(error: unknown): string {
+    if (error instanceof Error && error.message) {
+        return error.message;
+    }
+
+    return 'Cannot connect to the Colyseus server. Please confirm the backend is running.';
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+    return new Promise((resolve, reject) => {
+        const timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+        promise
+            .then(resolve)
+            .catch(reject)
+            .finally(() => window.clearTimeout(timeoutId));
+    });
+}
+
 function toLobbyRoomSummary(room: RoomAvailable<LobbyRoomMetadata>): LobbyRoomSummary {
     return {
         roomId: room.roomId,
@@ -1519,43 +1537,49 @@ function renderRoomWaitArea(roomState: RoomWaitViewState | SyncedRoomState) {
 }
 
 function openCreateRoomModal() {
-    showModal('創建房間', `
+    showModal('Create Room', `
         <div class="create-room-form">
-            <label class="field-label" for="create-room-player-name">玩家名稱</label>
+            <label class="field-label" for="create-room-player-name">Player Name</label>
             <input id="create-room-player-name" class="modal-input" type="text" value="${escapeHTML(getPreferredPlayerName())}" autocomplete="nickname" />
             <label class="checkbox-row">
                 <input id="create-room-use-password" type="checkbox" />
-                <span>設定房間密碼</span>
+                <span>Set room password</span>
             </label>
-            <label class="field-label" for="create-room-password">密碼</label>
-            <input id="create-room-password" class="modal-input" type="password" placeholder="不填代表公開房間" autocomplete="off" />
+            <label class="field-label" for="create-room-password">Password</label>
+            <input id="create-room-password" class="modal-input" type="password" placeholder="Leave blank for public room" autocomplete="off" />
         </div>
     `, `
-        <button class="modal-confirm-btn" id="confirm-create-room-btn">創建</button>
-        <button class="modal-cancel-btn" id="cancel-create-room-btn">取消</button>
+        <button class="modal-confirm-btn" id="confirm-create-room-btn">Create</button>
+        <button class="modal-cancel-btn" id="cancel-create-room-btn">Cancel</button>
     `);
 
     document.getElementById('cancel-create-room-btn')!.onclick = closeModal;
     document.getElementById('confirm-create-room-btn')!.onclick = async () => {
-        const playerName = (document.getElementById('create-room-player-name') as HTMLInputElement).value.trim() || '玩家';
+        const confirmButton = document.getElementById('confirm-create-room-btn') as HTMLButtonElement;
+        const playerName = (document.getElementById('create-room-player-name') as HTMLInputElement).value.trim() || 'Player';
         const usePassword = (document.getElementById('create-room-use-password') as HTMLInputElement).checked;
         const password = (document.getElementById('create-room-password') as HTMLInputElement).value.trim();
         setPreferredPlayerName(playerName);
+        confirmButton.disabled = true;
+        confirmButton.textContent = 'Creating...';
 
         try {
-            const room = await colyseusClient.create<SyncedRoomState>('love_letter', {
-                name: playerName,
-                password: usePassword && password.length > 0 ? password : undefined
-            }, GameRoomState);
+            const room = await withTimeout(
+                colyseusClient.create<SyncedRoomState>('love_letter', {
+                    name: playerName,
+                    password: usePassword && password.length > 0 ? password : undefined
+                }, GameRoomState),
+                15_000,
+                `Create room timed out. Please confirm the Colyseus backend is reachable: ${colyseusEndpoint}`
+            );
             closeModal();
             bindGameRoom(room);
         } catch (error) {
-            showModal('創建房間失敗', `<p>${escapeHTML(error instanceof Error ? error.message : '無法建立房間。')}</p>`, '<button class="modal-confirm-btn" id="create-room-error-ok-btn">確定</button>');
+            showModal('Create Room Failed', `<p>${escapeHTML(getConnectionErrorMessage(error))}</p>`, '<button class="modal-confirm-btn" id="create-room-error-ok-btn">OK</button>');
             document.getElementById('create-room-error-ok-btn')!.onclick = closeModal;
         }
     };
 }
-
 async function joinLobbyRoom(roomId: string) {
     const roomSummary = lobbyRooms.find(candidate => candidate.roomId === roomId);
     if (!roomSummary || roomSummary.playerCount >= roomSummary.maxClients) return;
@@ -1566,13 +1590,17 @@ async function joinLobbyRoom(roomId: string) {
     setPreferredPlayerName(playerName);
 
     try {
-        const room = await colyseusClient.joinById<SyncedRoomState>(roomId, {
-            name: playerName,
-            password: password || undefined
-        }, GameRoomState);
+        const room = await withTimeout(
+            colyseusClient.joinById<SyncedRoomState>(roomId, {
+                name: playerName,
+                password: password || undefined
+            }, GameRoomState),
+            15_000,
+            `Join room timed out. Please confirm the Colyseus backend is reachable: ${colyseusEndpoint}`
+        );
         bindGameRoom(room);
     } catch (error) {
-        showModal('加入房間失敗', `<p>${escapeHTML(error instanceof Error ? error.message : '無法加入房間。')}</p>`, '<button class="modal-confirm-btn" id="join-room-error-ok-btn">確定</button>');
+        showModal('加入房間失敗', `<p>${escapeHTML(getConnectionErrorMessage(error))}</p>`, '<button class="modal-confirm-btn" id="join-room-error-ok-btn">確定</button>');
         document.getElementById('join-room-error-ok-btn')!.onclick = closeModal;
     }
 }
@@ -1608,7 +1636,11 @@ async function connectLobbyRoom() {
     }
 
     try {
-        lobbyRoom = await colyseusClient.joinOrCreate('lobby');
+        lobbyRoom = await withTimeout(
+            colyseusClient.joinOrCreate('lobby'),
+            15_000,
+            `Lobby connection timed out. Please confirm the Colyseus backend is reachable: ${colyseusEndpoint}`
+        );
         lobbyRoom.onMessage<RoomAvailable<LobbyRoomMetadata>[] | { rooms?: RoomAvailable<LobbyRoomMetadata>[] }>('rooms', message => {
             const rooms = Array.isArray(message) ? message : message.rooms ?? [];
             lobbyRooms = rooms
@@ -1626,7 +1658,7 @@ async function connectLobbyRoom() {
         roomListContainerEl.innerHTML = `
             <div class="empty-lobby-state">
                 <strong>無法連線至 Colyseus 大廳</strong>
-                <span>請確認後端伺服器已啟動並註冊 lobby 與 love_letter 房間。</span>
+                <span>${escapeHTML(getConnectionErrorMessage(error))}</span>
             </div>
         `;
     }
