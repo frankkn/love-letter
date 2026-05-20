@@ -13,6 +13,7 @@
     "vite": "^5.0.0"
   },
   "dependencies": {
-    "@colyseus/schema": "^4.0.25"
+    "@colyseus/schema": "^4.0.25",
+    "colyseus": "^0.17.10"
   }
 }
