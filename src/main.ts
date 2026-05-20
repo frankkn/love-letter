@@ -1494,11 +1494,16 @@ function renderLobbyList(rooms: LobbyRoomSummary[]) {
 
 function renderRoomWaitArea(roomState: RoomWaitViewState | SyncedRoomState) {
     const normalizedState = normalizeRoomWaitState(roomState);
+    const wasGameStarted = currentRoomWaitState?.isGameStarted ?? false;
     currentRoomWaitState = normalizedState;
     roomWaitSceneEl.dataset.gameStarted = normalizedState.isGameStarted ? 'true' : 'false';
 
     if (normalizedState.isGameStarted) {
-        console.log("房間狀態變更：遊戲開始，準備加載遊戲戰場");
+        console.log("\u623f\u9593\u72c0\u614b\u8b8a\u66f4\uff1a\u904a\u6232\u958b\u59cb\uff0c\u6e96\u5099\u52a0\u8f09\u904a\u6232\u6230\u5834");
+        if (!wasGameStarted) {
+            showModal('\u904a\u6232\u958b\u59cb', '<p>\u623f\u9593\u72c0\u614b\u5df2\u540c\u6b65\uff0c\u6e96\u5099\u8f09\u5165\u591a\u4eba\u904a\u6232\u6230\u5834\u3002</p>', '<button class="modal-confirm-btn" id="game-started-ok-btn">\u78ba\u5b9a</button>');
+            document.getElementById('game-started-ok-btn')!.onclick = closeModal;
+        }
     }
 
     currentRoomIdEl.textContent = normalizedState.roomId;
@@ -1509,18 +1514,18 @@ function renderRoomWaitArea(roomState: RoomWaitViewState | SyncedRoomState) {
         if (!player) {
             return `
                 <div class="room-player-row empty-slot">
-                    <span>等待玩家加入</span>
-                    <span class="player-status">空位</span>
+                    <span>\u7b49\u5f85\u73a9\u5bb6\u52a0\u5165</span>
+                    <span class="player-status">\u7a7a\u4f4d</span>
                 </div>
             `;
         }
 
-        const statusText = player.isReady || player.isHost ? '✔️ 已準備' : '⏳ 準備中';
+        const statusText = player.isReady || player.isHost ? '\u2714\ufe0f \u5df2\u6e96\u5099' : '\u23f3 \u6e96\u5099\u4e2d';
         return `
             <div class="room-player-row ${player.id === normalizedState.selfId ? 'self-player' : ''}">
                 <div class="room-player-name">
                     <strong>${escapeHTML(player.name)}</strong>
-                    ${player.isHost ? '<span class="host-badge">👑 房主</span>' : ''}
+                    ${player.isHost ? '<span class="host-badge">\ud83d\udc51 \u623f\u4e3b</span>' : ''}
                 </div>
                 <span class="player-status ${player.isReady || player.isHost ? 'ready' : 'waiting'}">${statusText}</span>
             </div>
@@ -1532,36 +1537,38 @@ function renderRoomWaitArea(roomState: RoomWaitViewState | SyncedRoomState) {
     const guestsReady = normalizedState.players
         .filter(player => !player.isHost)
         .every(player => player.isReady);
-    readyToggleBtn.textContent = isHost ? '開始遊戲' : (selfPlayer?.isReady ? '取消準備' : '準備');
-    readyToggleBtn.disabled = isHost && (normalizedState.players.length < 2 || !guestsReady);
+    readyToggleBtn.textContent = normalizedState.isGameStarted
+        ? '\u904a\u6232\u5df2\u958b\u59cb'
+        : isHost ? '\u958b\u59cb\u904a\u6232' : (selfPlayer?.isReady ? '\u53d6\u6d88\u6e96\u5099' : '\u6e96\u5099');
+    readyToggleBtn.disabled = normalizedState.isGameStarted || (isHost && (normalizedState.players.length < 2 || !guestsReady));
 }
 
 function openCreateRoomModal() {
-    showModal('Create Room', `
+    showModal('\u5275\u5efa\u623f\u9593', `
         <div class="create-room-form">
-            <label class="field-label" for="create-room-player-name">Player Name</label>
+            <label class="field-label" for="create-room-player-name">\u73a9\u5bb6\u540d\u7a31</label>
             <input id="create-room-player-name" class="modal-input" type="text" value="${escapeHTML(getPreferredPlayerName())}" autocomplete="nickname" />
             <label class="checkbox-row">
                 <input id="create-room-use-password" type="checkbox" />
-                <span>Set room password</span>
+                <span>\u8a2d\u5b9a\u623f\u9593\u5bc6\u78bc</span>
             </label>
-            <label class="field-label" for="create-room-password">Password</label>
-            <input id="create-room-password" class="modal-input" type="password" placeholder="Leave blank for public room" autocomplete="off" />
+            <label class="field-label" for="create-room-password">\u5bc6\u78bc</label>
+            <input id="create-room-password" class="modal-input" type="password" placeholder="\u4e0d\u586b\u4ee3\u8868\u516c\u958b\u623f\u9593" autocomplete="off" />
         </div>
     `, `
-        <button class="modal-confirm-btn" id="confirm-create-room-btn">Create</button>
-        <button class="modal-cancel-btn" id="cancel-create-room-btn">Cancel</button>
+        <button class="modal-confirm-btn" id="confirm-create-room-btn">\u5275\u5efa</button>
+        <button class="modal-cancel-btn" id="cancel-create-room-btn">\u53d6\u6d88</button>
     `);
 
     document.getElementById('cancel-create-room-btn')!.onclick = closeModal;
     document.getElementById('confirm-create-room-btn')!.onclick = async () => {
         const confirmButton = document.getElementById('confirm-create-room-btn') as HTMLButtonElement;
-        const playerName = (document.getElementById('create-room-player-name') as HTMLInputElement).value.trim() || 'Player';
+        const playerName = (document.getElementById('create-room-player-name') as HTMLInputElement).value.trim() || '\u73a9\u5bb6';
         const usePassword = (document.getElementById('create-room-use-password') as HTMLInputElement).checked;
         const password = (document.getElementById('create-room-password') as HTMLInputElement).value.trim();
         setPreferredPlayerName(playerName);
         confirmButton.disabled = true;
-        confirmButton.textContent = 'Creating...';
+        confirmButton.textContent = '\u5efa\u7acb\u4e2d...';
 
         try {
             const room = await withTimeout(
@@ -1570,16 +1577,17 @@ function openCreateRoomModal() {
                     password: usePassword && password.length > 0 ? password : undefined
                 }, GameRoomState),
                 15_000,
-                `Create room timed out. Please confirm the Colyseus backend is reachable: ${colyseusEndpoint}`
+                `\u5efa\u7acb\u623f\u9593\u903e\u6642\u3002\u8acb\u78ba\u8a8d Colyseus \u5f8c\u7aef\u53ef\u9023\u7dda\uff1a${colyseusEndpoint}`
             );
             closeModal();
             bindGameRoom(room);
         } catch (error) {
-            showModal('Create Room Failed', `<p>${escapeHTML(getConnectionErrorMessage(error))}</p>`, '<button class="modal-confirm-btn" id="create-room-error-ok-btn">OK</button>');
+            showModal('\u5275\u5efa\u623f\u9593\u5931\u6557', `<p>${escapeHTML(getConnectionErrorMessage(error))}</p>`, '<button class="modal-confirm-btn" id="create-room-error-ok-btn">\u78ba\u5b9a</button>');
             document.getElementById('create-room-error-ok-btn')!.onclick = closeModal;
         }
     };
 }
+
 async function joinLobbyRoom(roomId: string) {
     const roomSummary = lobbyRooms.find(candidate => candidate.roomId === roomId);
     if (!roomSummary || roomSummary.playerCount >= roomSummary.maxClients) return;
