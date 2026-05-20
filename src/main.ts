@@ -180,6 +180,33 @@ function renderPlayedCardStats() {
     }
 }
 
+function createPlayedCardStatsHTML(): string {
+    const counts = new Map<CardType, number>();
+    state.players
+        .flatMap(player => player.discardPile)
+        .forEach(card => counts.set(card.type, (counts.get(card.type) || 0) + 1));
+
+    const rows = Array.from({ length: CardType.Princess }, (_, index) => {
+        const type = (index + 1) as CardType;
+        const count = counts.get(type) || 0;
+        const def = CARD_DEFINITIONS[type];
+        return `
+            <div class="modal-card-stat-row ${count === 0 ? 'empty' : ''}">
+                <span class="modal-card-stat-value">${type}</span>
+                <span class="modal-card-stat-name">${def.name}</span>
+                <span class="modal-card-stat-count">${count}/${def.count}</span>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <section class="modal-card-stats" aria-label="出牌統計">
+            <h3>出牌統計</h3>
+            <div class="modal-card-stats-grid">${rows}</div>
+        </section>
+    `;
+}
+
 function coinIconHTML(): string {
     return `<svg class="coin-icon" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true" focusable="false" style="width:1em;height:1em;display:inline-block;vertical-align:-0.12em;flex:0 0 auto;"><circle cx="12" cy="12" r="10" fill="#f6c85f" stroke="#9b6b13" stroke-width="1.8"></circle><circle cx="12" cy="12" r="6.7" fill="#ffd978" stroke="#c58a1d" stroke-width="1.2"></circle><path d="M8.6 12.9h6.8M9.6 9.6h4.8M9.6 16.1h4.8" stroke="#8b5a0a" stroke-width="1.6" stroke-linecap="round"></path></svg>`;
 }
@@ -611,7 +638,10 @@ async function applyEffect(playerId: number, card: Card, shouldEndTurn = true, r
                 buttonsHTML += `<button class="target-btn" data-id="${t.id}">${t.name}</button>`;
             });
             buttonsHTML += '</div>';
-            showModal(`請選擇 ${card.name} 的目標`, buttonsHTML, cancelButtonHTML());
+            const bodyHTML = card.type === CardType.Baron
+                ? `<p class="modal-helper-text">選擇要秘密比大小的對象。下方同步顯示目前出牌統計，方便判斷剩餘牌況。</p>${createPlayedCardStatsHTML()}${buttonsHTML}`
+                : buttonsHTML;
+            showModal(`請選擇 ${card.name} 的目標`, bodyHTML, cancelButtonHTML());
             bindCancelRollback(rollback);
             
             const btns = modalBody.querySelectorAll('.target-btn');

@@ -660,6 +660,76 @@ h3 {
   margin-top: 15px;
 }
 
+.modal-helper-text {
+  margin: 0 0 0.85rem;
+  color: #d8d8d8;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  text-align: left;
+}
+
+.modal-card-stats {
+  margin: 0.85rem 0 1rem;
+  padding: 0.85rem;
+  border: 1px solid rgba(255, 165, 2, 0.28);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  text-align: left;
+}
+
+.modal-card-stats h3 {
+  margin: 0 0 0.65rem;
+  padding-bottom: 0.45rem;
+  font-size: 1rem;
+}
+
+.modal-card-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.modal-card-stat-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 7px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.modal-card-stat-row.empty {
+  opacity: 0.45;
+}
+
+.modal-card-stat-value {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ff4d4d;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.modal-card-stat-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.modal-card-stat-count {
+  color: #ffa502;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
 .target-btn {
   padding: 10px;
   background: #333;
