@@ -255,8 +255,10 @@ const playerDiscardEl = document.getElementById('player-discard')!;
 const deckCountEl = document.getElementById('deck-count')!;
 const drawBtn = document.getElementById('draw-btn') as HTMLButtonElement;
 const showResultBtn = document.getElementById('show-result-btn') as HTMLButtonElement;
+const showLogBtn = document.getElementById('show-log-btn') as HTMLButtonElement;
 const gameLogEl = document.getElementById('game-log')!;
 const turnIndicatorEl = document.getElementById('turn-indicator')!;
+showLogBtn.textContent = '查看對戰紀錄';
 
 // Modal 相關
 const modalOverlay = document.getElementById('modal-overlay')!;
@@ -1504,6 +1506,24 @@ function showEndGameModal() {
 }
 
 // 8. AI 回合優化
+function showBattleLogModal() {
+    const logsHTML = state.logs.length
+        ? state.logs.map(log => `<div class="log-entry">${log}</div>`).join('')
+        : '<p class="modal-helper-text">目前還沒有對戰紀錄。</p>';
+
+    showModal('對戰紀錄', `
+        <div class="modal-log-container">
+            ${logsHTML}
+        </div>
+    `, '<button class="modal-confirm-btn" id="battle-log-close-btn">關閉</button>');
+
+    const logContainer = document.querySelector<HTMLElement>('.modal-log-container');
+    if (logContainer) {
+        logContainer.scrollTop = logContainer.scrollHeight;
+    }
+    document.getElementById('battle-log-close-btn')!.onclick = closeModal;
+}
+
 function getAICardPlayWeight(bot: Player, card: Card): number {
     const remainingCard = bot.hand.find(handCard => handCard.id !== card.id);
     let weight = 10;
@@ -2294,6 +2314,7 @@ document.getElementById('back-home-btn')!.onclick = async () => {
     }
 };
 showResultBtn.onclick = showEndGameModal;
+showLogBtn.onclick = showBattleLogModal;
 document.addEventListener('click', event => {
     const target = event.target as HTMLElement;
     if (gameSceneEl.classList.contains('mobile-stats-open') && !target.closest('.card-stats-area, .mobile-stats-toggle')) {

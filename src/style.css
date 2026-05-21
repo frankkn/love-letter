@@ -295,6 +295,7 @@ h3 {
 /* 遊戲場景佈局 */
 #game-scene {
   display: flex;
+  flex-wrap: wrap;
   gap: 20px;
   align-items: flex-start;
   width: 100%;
@@ -372,12 +373,12 @@ h3 {
 }
 
 .sidebar-area {
-  flex: 0 0 300px;
+  order: -1;
+  flex: 0 0 100%;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  position: sticky;
-  top: 20px;
+  gap: 0;
+  position: static;
   overflow: visible !important;
 }
 
@@ -388,16 +389,19 @@ h3 {
 /* 遊戲資訊與日誌樣式 */
 .stats {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
   gap: 10px;
-  margin-bottom: 1rem;
+  margin-bottom: 0;
 }
 
 .stats-row {
+  flex: 1 1 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 10px;
+  min-width: 220px;
 }
 
 #draw-btn {
@@ -408,7 +412,7 @@ h3 {
   border-radius: 5px;
   cursor: pointer;
   font-weight: bold;
-  width: 100%;
+  width: auto;
 }
 
 .result-btn {
@@ -419,7 +423,7 @@ h3 {
   border-radius: 5px;
   cursor: pointer;
   font-weight: bold;
-  width: 100%;
+  width: auto;
 }
 
 .result-btn:hover {
@@ -429,6 +433,12 @@ h3 {
 #draw-btn:disabled {
   background-color: #747d8c;
   cursor: not-allowed;
+}
+
+#show-log-btn,
+#back-home-btn {
+  width: auto !important;
+  padding: 8px 16px;
 }
 
 #restart-btn {
@@ -451,6 +461,7 @@ h3 {
 }
 
 .log-container {
+  display: none;
   height: calc(100vh - 250px);
   min-height: 400px;
   overflow-y: auto;
@@ -465,6 +476,16 @@ h3 {
 .log-entry {
   margin: 4px 0;
   border-bottom: 1px solid #333;
+}
+
+.modal-log-container {
+  max-height: min(70vh, 560px);
+  overflow-y: auto;
+  padding: 0.65rem;
+  border-left: 4px solid #ff4d4d;
+  border-radius: 8px;
+  background: #1e1e1e;
+  text-align: left;
 }
 
 /* Modal 樣式 */
@@ -1073,6 +1094,18 @@ h3 {
     overflow: hidden !important;
   }
 
+  .stats {
+    flex-direction: row;
+    align-items: stretch;
+    gap: 5px;
+    margin-bottom: 0;
+  }
+
+  .stats-row {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
   .main-battle-area {
     order: 2;
     flex: 1 1 auto;
@@ -1195,6 +1228,7 @@ h3 {
 
   #draw-btn,
   .result-btn,
+  #show-log-btn,
   #back-home-btn {
     width: auto !important;
     flex: 1 1 0;
@@ -1207,6 +1241,7 @@ h3 {
   }
 
   .log-container {
+    display: none;
     height: 120px;
     min-height: 104px;
     max-height: 130px;
@@ -1231,9 +1266,9 @@ h3 {
   }
 
   #opponents-container {
-    flex: 1 1 auto;
+    flex: 1 1 52%;
     width: 100%;
-    min-height: 232px;
+    min-height: 0;
     height: auto;
     max-height: none;
     gap: 5px;
@@ -1251,7 +1286,7 @@ h3 {
     max-width: none;
     box-sizing: border-box;
     display: grid;
-    grid-template-rows: 16px minmax(0, 3.2fr) minmax(0, 1fr);
+    grid-template-rows: 16px minmax(0, 1fr) 86px;
     height: 100%;
     align-items: stretch;
     gap: 3px;
@@ -1276,7 +1311,8 @@ h3 {
     grid-row: 2;
     box-sizing: border-box;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(50px, 1fr));
+    grid-auto-rows: minmax(124px, auto);
     align-content: start;
     justify-items: center;
     min-height: 0;
@@ -1286,7 +1322,8 @@ h3 {
     padding: 4px 3px;
     gap: 3px;
     background: rgba(0, 0, 0, 0.22);
-    overflow: hidden !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
   }
 
   .opponent-area .hand-container {
@@ -1304,14 +1341,15 @@ h3 {
   }
 
   .opponent-area .discard-container .card-wrapper {
-    width: 42px;
-    min-height: 104px;
+    width: 52px;
+    min-height: 118px;
     gap: 3px;
+    align-items: center;
   }
 
   .opponent-area .discard-container .card {
-    width: 42px;
-    height: 60px;
+    width: 48px;
+    height: 68px;
     padding: 1px;
     border-radius: 4px;
   }
@@ -1342,7 +1380,7 @@ h3 {
     gap: 2px;
     width: max-content;
     min-width: 100%;
-    max-width: 66px;
+    max-width: 76px;
     justify-self: center;
   }
 
@@ -1351,8 +1389,8 @@ h3 {
     min-height: 0;
     padding: 3px 4px;
     border-radius: 5px;
-    font-size: 0.66rem;
-    line-height: 1.18;
+    font-size: 0.68rem;
+    line-height: 1.22;
     white-space: normal;
     word-break: normal;
     overflow-wrap: anywhere;
@@ -1410,11 +1448,11 @@ h3 {
   }
 
   #player-area {
-    flex: 0 0 auto;
+    flex: 1 1 48%;
     width: 100%;
     box-sizing: border-box;
-    min-height: 176px;
-    max-height: 202px;
+    min-height: 0;
+    max-height: none;
     margin-top: auto;
     padding: 0.35rem;
     display: grid;
@@ -1441,11 +1479,13 @@ h3 {
     margin: 0;
     padding: 0.25rem;
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(50px, 1fr));
+    grid-auto-rows: minmax(126px, auto);
     align-content: start;
     justify-items: center;
     gap: 3px;
-    overflow: hidden !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
   }
 
   #player-hand {
@@ -1477,14 +1517,15 @@ h3 {
   }
 
   #player-discard .card-wrapper {
-    width: 40px;
-    min-height: 112px;
+    width: 54px;
+    min-height: 120px;
     gap: 3px;
+    align-items: center;
   }
 
   #player-discard .card {
-    width: 38px;
-    height: 54px;
+    width: 50px;
+    height: 70px;
     padding: 2px;
     border-radius: 4px;
     gap: 1px;
@@ -1527,19 +1568,17 @@ h3 {
   }
 
   #player-discard .card-action-hints,
-  .discard-container .card-action-hints,
   .played-cards-container .card-action-hints {
     display: grid !important;
     gap: 2px;
     width: max-content;
     min-width: 100%;
-    max-width: 76px;
+    max-width: 86px;
     justify-self: center;
     overflow: visible;
   }
 
   #player-discard .card-action-hint,
-  .discard-container .card-action-hint,
   .played-cards-container .card-action-hint {
     min-height: 0;
     padding: 3px 5px;
