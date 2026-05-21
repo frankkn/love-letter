@@ -190,8 +190,9 @@ h3 {
 .card-desc {
   display: none;
   position: absolute;
-  top: 0;
-  left: 106px;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(calc(-50% + var(--card-desc-shift, 0px)));
   z-index: 9999;
   width: 160px;
   box-sizing: border-box;
@@ -206,6 +207,11 @@ h3 {
   line-height: 1.45;
   pointer-events: none;
   text-align: left;
+}
+
+.card.card-desc-below .card-desc {
+  top: calc(100% + 8px);
+  bottom: auto;
 }
 
 .card.card-selected {
@@ -1566,8 +1572,7 @@ h3 {
   }
 
   .card-desc {
-    left: 82px;
-    width: min(150px, calc(100vw - 100px));
+    width: min(150px, calc(100vw - 16px));
     padding: 0.45rem;
     font-size: 0.65rem;
   }

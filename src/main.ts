@@ -456,6 +456,9 @@ function render() {
         const cardUI = createCardUI(card, isPlayable);
         const cardEl = cardUI.querySelector('.card');
         cardEl?.classList.toggle('card-selected', selectedCardId === card.id);
+        if (cardEl instanceof HTMLElement && selectedCardId === card.id) {
+            positionCardDescription(cardEl);
+        }
         cardUI.onclick = event => {
             event.stopPropagation();
             if (selectedCardId !== card.id) {
@@ -517,10 +520,13 @@ function createCardUI(card: Card, isPlayable: boolean): HTMLElement {
     cardDiv.addEventListener('pointerenter', () => {
         wrapper.classList.add('card-wrapper-hovering');
         wrapper.closest('.area')?.classList.add('card-area-hovering');
+        positionCardDescription(cardDiv);
     });
     cardDiv.addEventListener('pointerleave', () => {
         wrapper.classList.remove('card-wrapper-hovering');
         wrapper.closest('.area')?.classList.remove('card-area-hovering');
+        cardDiv.classList.remove('card-desc-below');
+        cardDiv.style.removeProperty('--card-desc-shift');
     });
     wrapper.appendChild(cardDiv);
 
@@ -539,6 +545,32 @@ function createCardUI(card: Card, isPlayable: boolean): HTMLElement {
         cardDiv.style.cursor = 'default';
     }
     return wrapper;
+}
+
+function positionCardDescription(cardEl: HTMLElement) {
+    const desc = cardEl.querySelector<HTMLElement>('.card-desc');
+    if (!desc) return;
+
+    cardEl.classList.remove('card-desc-below');
+    cardEl.style.setProperty('--card-desc-shift', '0px');
+
+    window.requestAnimationFrame(() => {
+        const margin = 8;
+        let rect = desc.getBoundingClientRect();
+
+        if (rect.top < margin) {
+            cardEl.classList.add('card-desc-below');
+            rect = desc.getBoundingClientRect();
+        }
+
+        let shift = 0;
+        if (rect.left < margin) {
+            shift = margin - rect.left;
+        } else if (rect.right > window.innerWidth - margin) {
+            shift = window.innerWidth - margin - rect.right;
+        }
+        cardEl.style.setProperty('--card-desc-shift', `${shift}px`);
+    });
 }
 
 // Modal 系統
