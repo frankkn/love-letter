@@ -2320,6 +2320,7 @@ function applyOnlineGameState(data: OnlineGameStateData) {
                 : pendingForcedEffectsQueue;
         }
         onlineGameInitialized = true;
+        void handlePendingForcedEffect();
         return;
     }
 
