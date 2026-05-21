@@ -191,7 +191,7 @@ let lobbyRoom: Room | null = null;
 let activeGameRoom: Room<unknown, SyncedRoomState> | null = null;
 let lobbyRooms: LobbyRoomSummary[] = [];
 let currentRoomWaitState: RoomWaitViewState | null = null;
-let pendingForcedEffect: PendingForcedEffect | null = null;
+let pendingForcedEffectsQueue: PendingForcedEffect[] = [];
 let resolvingForcedEffect: PendingForcedEffect | null = null;
 let pendingBaronDuel: PendingBaronDuel | null = null;
 let activeBaronDuelModalKey: string | null = null;
@@ -225,7 +225,7 @@ async function resetClientState() {
 
     lobbyRooms = [];
     currentRoomWaitState = null;
-    pendingForcedEffect = null;
+    pendingForcedEffectsQueue = [];
     resolvingForcedEffect = null;
     pendingBaronDuel = null;
     activeBaronDuelModalKey = null;
@@ -1375,12 +1375,21 @@ async function discardAndDraw(targetId: number, returnTurnPlayerId: number, shou
     }
 
     if (isForcedEffectCard(discarded) && isOnlineGameActive() && targetId !== localPlayerId) {
-        pendingForcedEffect = {
+        const inheritedReturnTurnPlayerId = resolvingForcedEffect && !shouldEndTurnAfterResolution
+            ? resolvingForcedEffect.returnTurnPlayerId
+            : returnTurnPlayerId;
+        const inheritedShouldEndTurn = resolvingForcedEffect && !shouldEndTurnAfterResolution
+            ? resolvingForcedEffect.shouldEndTurnAfterResolution
+            : shouldEndTurnAfterResolution;
+        pendingForcedEffectsQueue = [
+            ...pendingForcedEffectsQueue,
+            {
             reactorId: targetId,
             card: discarded,
-            returnTurnPlayerId,
-            shouldEndTurnAfterResolution
-        };
+            returnTurnPlayerId: inheritedReturnTurnPlayerId,
+            shouldEndTurnAfterResolution: inheritedShouldEndTurn
+            }
+        ];
         render();
         syncOnlineGameState();
         return { discarded, hasPendingForcedEffect: true };
@@ -1735,7 +1744,8 @@ interface PendingBaronDuel {
 interface OnlineGameStateData extends OnlineGameData {
     isGameOver: boolean;
     winner: Player | null;
-    pendingForcedEffect: PendingForcedEffect | null;
+    pendingForcedEffect?: PendingForcedEffect | null;
+    pendingForcedEffectsQueue?: PendingForcedEffect[];
     pendingBaronDuel: PendingBaronDuel | null;
 }
 
@@ -1930,10 +1940,10 @@ function createOnlineGameStateData(): OnlineGameStateData {
         isGameOver: state.isGameOver,
         winner: state.winner ? cloneOnlinePlayer(state.winner) : null,
         logs: [...state.logs],
-        pendingForcedEffect: pendingForcedEffect ? {
-            ...pendingForcedEffect,
-            card: cloneCardForOnlineSync(pendingForcedEffect.card)
-        } : null,
+        pendingForcedEffectsQueue: pendingForcedEffectsQueue.map(effect => ({
+            ...effect,
+            card: cloneCardForOnlineSync(effect.card)
+        })),
         pendingBaronDuel: pendingBaronDuel ? {
             ...pendingBaronDuel,
             actorCard: cloneCardForOnlineSync(pendingBaronDuel.actorCard),
@@ -1974,6 +1984,14 @@ function clonePendingForcedEffect(effect: PendingForcedEffect): PendingForcedEff
         ...effect,
         card: { ...effect.card }
     };
+}
+
+function clonePendingForcedEffectsQueue(queue: PendingForcedEffect[] | undefined, fallback?: PendingForcedEffect | null) {
+    if (queue) {
+        return queue.map(clonePendingForcedEffect);
+    }
+
+    return fallback ? [clonePendingForcedEffect(fallback)] : [];
 }
 
 function clonePendingBaronDuel(duel: PendingBaronDuel): PendingBaronDuel {
@@ -2091,41 +2109,54 @@ function isLocalForcedEffect(effect: PendingForcedEffect | null) {
     return effect?.reactorId === localPlayerId;
 }
 
+function getTopPendingForcedEffect(queue = pendingForcedEffectsQueue) {
+    return queue.length > 0 ? queue[queue.length - 1] : null;
+}
+
+function hasLocalPendingForcedEffect(queue = pendingForcedEffectsQueue) {
+    return queue.some(effect => effect.reactorId === localPlayerId);
+}
+
 function isResolvingThisForcedEffect(effect: PendingForcedEffect | null) {
     return isSamePendingForcedEffect(resolvingForcedEffect, effect);
 }
 
-function isResolvingLocalForcedEffect(incomingPendingForcedEffect: PendingForcedEffect | null) {
+function isResolvingLocalForcedEffect(incomingPendingForcedEffectsQueue: PendingForcedEffect[]) {
+    const incomingTopForcedEffect = getTopPendingForcedEffect(incomingPendingForcedEffectsQueue);
     return Boolean(
         isOnlineGameActive() &&
         isResolvingTurnAction &&
         (
             isLocalForcedEffect(resolvingForcedEffect) ||
-            isLocalForcedEffect(pendingForcedEffect)
+            hasLocalPendingForcedEffect()
         ) &&
         (
             isHandlingPendingForcedEffect ||
-            incomingPendingForcedEffect === null ||
-            isResolvingThisForcedEffect(incomingPendingForcedEffect) ||
-            isSamePendingForcedEffect(pendingForcedEffect, incomingPendingForcedEffect)
+            incomingPendingForcedEffectsQueue.length === 0 ||
+            isResolvingThisForcedEffect(incomingTopForcedEffect) ||
+            incomingPendingForcedEffectsQueue.some(effect => pendingForcedEffectsQueue.some(localEffect => isSamePendingForcedEffect(localEffect, effect)))
         )
     );
 }
 
 async function handlePendingForcedEffect() {
-    if (!pendingForcedEffect || isHandlingPendingForcedEffect) return;
-    if (pendingForcedEffect.reactorId !== localPlayerId) return;
+    const effect = getTopPendingForcedEffect();
+    if (!effect || isHandlingPendingForcedEffect) return;
+    if (effect.reactorId !== localPlayerId) {
+        if (hasLocalPendingForcedEffect()) {
+            isResolvingTurnAction = true;
+        }
+        return;
+    }
 
     isHandlingPendingForcedEffect = true;
-    const effect = pendingForcedEffect;
-    pendingForcedEffect = null;
+    pendingForcedEffectsQueue = pendingForcedEffectsQueue.slice(0, -1);
     resolvingForcedEffect = effect;
     isResolvingTurnAction = true;
 
     try {
         await applyEffect(effect.reactorId, effect.card, false, undefined, true);
-        pendingForcedEffect = null;
-        if (effect.shouldEndTurnAfterResolution && !state.isGameOver) {
+        if (effect.shouldEndTurnAfterResolution && !state.isGameOver && pendingForcedEffectsQueue.length === 0) {
             await endTurn(effect.returnTurnPlayerId);
         } else {
             isResolvingTurnAction = false;
@@ -2135,11 +2166,11 @@ async function handlePendingForcedEffect() {
     } finally {
         isResolvingTurnAction = false;
         resolvingForcedEffect = null;
-        pendingForcedEffect = null;
         isHandlingPendingForcedEffect = false;
-        if (!state.isGameOver && pendingForcedEffect === null) {
+        if (!state.isGameOver) {
             syncOnlineGameState();
         }
+        void handlePendingForcedEffect();
     }
 }
 
@@ -2151,9 +2182,10 @@ function applyOnlineGameState(data: OnlineGameStateData) {
         localPlayerId = selfIndex;
     }
 
-    const incomingPendingForcedEffect = data.pendingForcedEffect
-        ? clonePendingForcedEffect(data.pendingForcedEffect)
-        : null;
+    const incomingPendingForcedEffectsQueue = clonePendingForcedEffectsQueue(
+        data.pendingForcedEffectsQueue,
+        data.pendingForcedEffect
+    );
     const incomingPendingBaronDuel = data.pendingBaronDuel
         ? clonePendingBaronDuel(data.pendingBaronDuel)
         : null;
@@ -2166,8 +2198,8 @@ function applyOnlineGameState(data: OnlineGameStateData) {
     );
     const isRemoteForcedEffectCompletion = Boolean(
         isResolvingTurnAction &&
-        pendingForcedEffect &&
-        incomingPendingForcedEffect === null
+        pendingForcedEffectsQueue.length > 0 &&
+        incomingPendingForcedEffectsQueue.length === 0
     );
     const shouldPreserveLocalInteraction = Boolean(
         isOnlineGameActive() &&
@@ -2176,13 +2208,13 @@ function applyOnlineGameState(data: OnlineGameStateData) {
                 isResolvingTurnAction &&
                 (
                     (data.currentTurnPlayerId === localPlayerId && !isRemoteForcedEffectCompletion) ||
-                    isResolvingLocalForcedEffect(incomingPendingForcedEffect) ||
-                    (data.currentTurnPlayerId !== localPlayerId && (isLocalForcedEffect(pendingForcedEffect) || isLocalForcedEffect(resolvingForcedEffect)))
+                    isResolvingLocalForcedEffect(incomingPendingForcedEffectsQueue) ||
+                    (data.currentTurnPlayerId !== localPlayerId && (hasLocalPendingForcedEffect() || isLocalForcedEffect(resolvingForcedEffect)))
                 )
             ) ||
             (
-                isLocalForcedEffect(incomingPendingForcedEffect) &&
-                isLocalForcedEffect(pendingForcedEffect)
+                incomingPendingForcedEffectsQueue.some(effect => effect.reactorId === localPlayerId) &&
+                hasLocalPendingForcedEffect()
             )
         )
     );
@@ -2195,8 +2227,10 @@ function applyOnlineGameState(data: OnlineGameStateData) {
     }
 
     if (shouldPreserveLocalInteraction) {
-        if (!isResolvingLocalForcedEffect(incomingPendingForcedEffect) && !isLocalForcedEffect(pendingForcedEffect)) {
-            pendingForcedEffect = incomingPendingForcedEffect ?? pendingForcedEffect;
+        if (!isResolvingLocalForcedEffect(incomingPendingForcedEffectsQueue) && !hasLocalPendingForcedEffect()) {
+            pendingForcedEffectsQueue = incomingPendingForcedEffectsQueue.length > 0
+                ? incomingPendingForcedEffectsQueue
+                : pendingForcedEffectsQueue;
         }
         onlineGameInitialized = true;
         return;
@@ -2222,7 +2256,7 @@ function applyOnlineGameState(data: OnlineGameStateData) {
             logs: [...data.logs],
             aiMemory: {}
         };
-        pendingForcedEffect = incomingPendingForcedEffect;
+        pendingForcedEffectsQueue = incomingPendingForcedEffectsQueue;
         pendingBaronDuel = incomingPendingBaronDuel;
 
         onlineGameInitialized = true;
@@ -2245,7 +2279,7 @@ function applyOnlineGameData(data: OnlineGameData) {
         ...data,
         isGameOver: false,
         winner: null,
-        pendingForcedEffect: null,
+        pendingForcedEffectsQueue: [],
         pendingBaronDuel: null
     });
 }
@@ -2664,7 +2698,7 @@ function initGame(botCount: number) {
     localPlayerId = 0;
     onlineGameInitialized = false;
     isApplyingOnlineState = false;
-    pendingForcedEffect = null;
+    pendingForcedEffectsQueue = [];
     resolvingForcedEffect = null;
     pendingBaronDuel = null;
     activeBaronDuelModalKey = null;
@@ -2717,7 +2751,7 @@ function startNextRound() {
     queuedBotTurnId = null;
     selectedCardId = null;
     isResolvingTurnAction = false;
-    pendingForcedEffect = null;
+    pendingForcedEffectsQueue = [];
     resolvingForcedEffect = null;
     pendingBaronDuel = null;
     activeBaronDuelModalKey = null;
