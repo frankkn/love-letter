@@ -197,6 +197,7 @@ let pendingBaronDuel: PendingBaronDuel | null = null;
 let activeBaronDuelModalKey: string | null = null;
 let isHandlingPendingForcedEffect = false;
 let hasShownEndGameModal = false;
+let nextRoundReadyPlayerIds: number[] = [];
 
 async function leaveRoomIfConnected(room: Room | null) {
     if (!room) return;
@@ -232,6 +233,7 @@ async function resetClientState() {
     activeBaronDuelModalKey = null;
     isHandlingPendingForcedEffect = false;
     hasShownEndGameModal = false;
+    nextRoundReadyPlayerIds = [];
     selectedCardId = null;
     isResolvingTurnAction = false;
     queuedBotTurnId = null;
@@ -1559,7 +1561,7 @@ function showEndGameModal() {
     if (nextRoundBtn) {
         nextRoundBtn.onclick = () => {
             closeModal();
-            startNextRound();
+            requestNextRound();
         };
     }
 
@@ -1764,6 +1766,7 @@ interface OnlineGameStateData extends OnlineGameData {
     pendingForcedEffect?: PendingForcedEffect | null;
     pendingForcedEffectsQueue?: PendingForcedEffect[];
     pendingBaronDuel: PendingBaronDuel | null;
+    nextRoundReadyPlayerIds?: number[];
 }
 
 function getConnectionErrorMessage(error: unknown): string {
@@ -1966,7 +1969,8 @@ function createOnlineGameStateData(): OnlineGameStateData {
             actorCard: cloneCardForOnlineSync(pendingBaronDuel.actorCard),
             targetCard: cloneCardForOnlineSync(pendingBaronDuel.targetCard),
             confirmedPlayerIds: [...pendingBaronDuel.confirmedPlayerIds]
-        } : null
+        } : null,
+        nextRoundReadyPlayerIds: [...nextRoundReadyPlayerIds]
     };
 }
 
@@ -2237,6 +2241,7 @@ function applyOnlineGameState(data: OnlineGameStateData) {
             pendingBaronDuel = null;
             activeBaronDuelModalKey = null;
             isHandlingPendingForcedEffect = false;
+            nextRoundReadyPlayerIds = [...(data.nextRoundReadyPlayerIds ?? [])];
 
             const players = restoreLocalPrivateHints(data.players.map(cloneOnlinePlayer));
 
@@ -2259,12 +2264,15 @@ function applyOnlineGameState(data: OnlineGameStateData) {
             render();
             if (shouldShowEndGameModal) {
                 showEndGameModal();
+            } else if (nextRoundReadyPlayerIds.includes(localPlayerId) && modalOverlay.style.display !== 'flex') {
+                showNextRoundWaitingModal();
             }
             window.requestAnimationFrame(() => render());
         } finally {
             isApplyingOnlineState = false;
         }
 
+        startNextRoundIfReadyAndHost();
         return;
     }
 
@@ -2337,6 +2345,7 @@ function applyOnlineGameState(data: OnlineGameStateData) {
         };
         pendingForcedEffectsQueue = incomingPendingForcedEffectsQueue;
         pendingBaronDuel = incomingPendingBaronDuel;
+        nextRoundReadyPlayerIds = [...(data.nextRoundReadyPlayerIds ?? [])];
 
         onlineGameInitialized = true;
         if (!isLocalBaronDuelParticipant(pendingBaronDuel)) {
@@ -2359,7 +2368,8 @@ function applyOnlineGameData(data: OnlineGameData) {
         isGameOver: false,
         winner: null,
         pendingForcedEffectsQueue: [],
-        pendingBaronDuel: null
+        pendingBaronDuel: null,
+        nextRoundReadyPlayerIds: []
     });
 }
 
@@ -2783,6 +2793,7 @@ function initGame(botCount: number) {
     activeBaronDuelModalKey = null;
     isHandlingPendingForcedEffect = false;
     hasShownEndGameModal = false;
+    nextRoundReadyPlayerIds = [];
     queuedBotTurnId = null;
     selectedCardId = null;
     isResolvingTurnAction = false;
@@ -2824,10 +2835,83 @@ function initGame(botCount: number) {
     render();
 }
 
+function getConnectedOnlinePlayerIds(): number[] {
+    if (currentRoomWaitState?.players.length) {
+        return currentRoomWaitState.players
+            .map((player, index) => ({ player, index }))
+            .filter(({ player }) => player.isConnected ?? true)
+            .map(({ index }) => index);
+    }
+
+    return state.players
+        .filter(player => !player.isBot)
+        .map(player => player.id);
+}
+
+function getNextRoundWaitingPlayerNames(): string[] {
+    const readyIds = new Set(nextRoundReadyPlayerIds);
+    return getConnectedOnlinePlayerIds()
+        .filter(playerId => !readyIds.has(playerId))
+        .map(playerId => state.players[playerId]?.name ?? `玩家 ${playerId + 1}`);
+}
+
+function areAllConnectedPlayersReadyForNextRound() {
+    const connectedPlayerIds = getConnectedOnlinePlayerIds();
+    return connectedPlayerIds.length > 0 && connectedPlayerIds.every(playerId => nextRoundReadyPlayerIds.includes(playerId));
+}
+
+function isLocalRoomHost() {
+    return currentRoomWaitState?.players[localPlayerId]?.isHost ?? localPlayerId === 0;
+}
+
+function showNextRoundWaitingModal() {
+    const waitingNames = getNextRoundWaitingPlayerNames();
+    const waitingListHTML = waitingNames.length > 0
+        ? waitingNames.map(name => `<li>等待 ${escapeHTML(name)} 加入下一局</li>`).join('')
+        : '<li>所有玩家已準備，正在開始下一局...</li>';
+
+    showModal('等待下一局', `
+        <div style="text-align: left; line-height: 1.7;">
+            <p style="margin-top: 0;">你已準備開始下一局。請等待其他玩家確認。</p>
+            <ul style="margin: 0.5rem 0 0; padding-left: 1.25rem;">${waitingListHTML}</ul>
+        </div>
+    `, '<button class="modal-confirm-btn" id="next-round-wait-log-btn">留在戰場查看紀錄</button>');
+
+    document.getElementById('next-round-wait-log-btn')!.onclick = () => {
+        closeModal();
+        showResultBtn.style.display = 'block';
+    };
+}
+
+function requestNextRound() {
+    if (!state.winner) return;
+
+    if (!isOnlineGameActive()) {
+        startNextRound();
+        return;
+    }
+
+    if (!nextRoundReadyPlayerIds.includes(localPlayerId)) {
+        nextRoundReadyPlayerIds = [...nextRoundReadyPlayerIds, localPlayerId];
+    }
+
+    showNextRoundWaitingModal();
+    syncOnlineGameState();
+    startNextRoundIfReadyAndHost();
+}
+
+function startNextRoundIfReadyAndHost() {
+    if (!isOnlineGameActive() || !state.isGameOver || !areAllConnectedPlayersReadyForNextRound() || !isLocalRoomHost()) return;
+
+    closeModal();
+    startNextRound();
+}
+
 function startNextRound() {
     if (!state.winner) return;
 
     endGameReason = '';
+    nextRoundReadyPlayerIds = [];
     queuedBotTurnId = null;
     selectedCardId = null;
     isResolvingTurnAction = false;
