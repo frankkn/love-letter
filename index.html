@@ -158,6 +158,12 @@
       const installPrompt = document.getElementById('pwa-install-prompt');
       const installButton = document.getElementById('pwa-install-btn');
       const dismissButton = document.getElementById('pwa-dismiss-btn');
+      const startGameButton = document.getElementById('start-game-btn');
+
+      function dismissInstallPrompt() {
+        installPrompt.style.display = 'none';
+        deferredInstallPrompt = null;
+      }
 
       window.addEventListener('beforeinstallprompt', event => {
         event.preventDefault();
@@ -174,12 +180,13 @@
       });
 
       dismissButton?.addEventListener('click', () => {
-        installPrompt.style.display = 'none';
+        dismissInstallPrompt();
       });
 
+      startGameButton?.addEventListener('click', dismissInstallPrompt);
+
       window.addEventListener('appinstalled', () => {
-        installPrompt.style.display = 'none';
-        deferredInstallPrompt = null;
+        dismissInstallPrompt();
       });
     </script>
 
