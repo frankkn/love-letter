@@ -29,6 +29,8 @@ export interface Card {
     readonly value: number;
     readonly description: string;
     actionHints?: CardActionHint[];
+    privateActionHints?: CardActionHint[];
+    privateHintOwnerId?: number;
     targetName?: string;
     guessedCardName?: string;
 }
@@ -493,7 +495,10 @@ function createCardUI(card: Card, isPlayable: boolean): HTMLElement {
     wrapper.className = 'card-wrapper';
     if (!isPlayable) wrapper.style.cursor = 'default';
 
-    const actionHints = card.actionHints ?? (card.targetName && card.guessedCardName
+    const visiblePrivateHints = card.privateHintOwnerId === localPlayerId
+        ? card.privateActionHints
+        : undefined;
+    const actionHints = visiblePrivateHints ?? card.actionHints ?? (card.targetName && card.guessedCardName
         ? [{ text: `🎯 對 ${card.targetName} 猜: ${card.guessedCardName}` }]
         : []);
 
@@ -1048,9 +1053,21 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
                 rememberKnownCard(actorId, targetId, target.hand[0].type);
             }
             const playedPriest = actor.discardPile.find(discarded => discarded.id === card.id) ?? card;
-            const priestHint = `\u{1F3AF} \u67E5\u770B\u4E86 ${target.name} \u7684\u624B\u724C`;
-            card.actionHints = [{ text: priestHint, variant: 'default' }];
-            playedPriest.actionHints = [{ text: priestHint, variant: 'default' }];
+            const priestPublicHint = `\u{1F3AF} \u5C0D ${target.name} \u4F7F\u7528`;
+            card.actionHints = [{ text: priestPublicHint, variant: 'default' }];
+            playedPriest.actionHints = [{ text: priestPublicHint, variant: 'default' }];
+            delete card.privateActionHints;
+            delete card.privateHintOwnerId;
+            delete playedPriest.privateActionHints;
+            delete playedPriest.privateHintOwnerId;
+            if (!actor.isBot && target.hand[0]) {
+                const privatePriestHint = `\u{1F3AF} \u770B\u898B\u4E86 ${target.name} \u7684 ${target.hand[0].name}(${target.hand[0].value})`;
+                const privateHints: CardActionHint[] = [{ text: privatePriestHint, variant: 'default' }];
+                card.privateActionHints = privateHints;
+                card.privateHintOwnerId = actorId;
+                playedPriest.privateActionHints = privateHints;
+                playedPriest.privateHintOwnerId = actorId;
+            }
             render();
             addLog(`${actor.name} \u770B\u4E86\u4E00\u4E0B ${target.name} \u7684\u624B\u724C\u3002`);
             syncOnlineGameState();
@@ -1754,13 +1771,48 @@ function isOnlineGameActive(): boolean {
     return Boolean(activeGameRoom && onlineGameInitialized);
 }
 
+function cloneCardForOnlineSync(card: Card): Card {
+    const { privateActionHints, privateHintOwnerId, actionHints, ...publicCard } = card;
+    void privateActionHints;
+    void privateHintOwnerId;
+    return {
+        ...publicCard,
+        ...(actionHints ? { actionHints: actionHints.map(hint => ({ ...hint })) } : {})
+    };
+}
+
 function cloneOnlinePlayer(player: Player): Player {
     return {
         ...player,
-        hand: [...player.hand],
-        discardPile: [...player.discardPile],
+        hand: player.hand.map(cloneCardForOnlineSync),
+        discardPile: player.discardPile.map(cloneCardForOnlineSync),
         isBot: false
     };
+}
+
+function restoreLocalPrivateHints(players: Player[]): Player[] {
+    const previousLocalPlayer = state.players[localPlayerId];
+    const incomingLocalPlayer = players[localPlayerId];
+    if (!previousLocalPlayer || !incomingLocalPlayer) return players;
+
+    const privateHintsByCardId = new Map<string, Pick<Card, 'privateActionHints' | 'privateHintOwnerId'>>();
+    [...previousLocalPlayer.hand, ...previousLocalPlayer.discardPile].forEach(card => {
+        if (card.privateHintOwnerId === localPlayerId && card.privateActionHints?.length) {
+            privateHintsByCardId.set(card.id, {
+                privateActionHints: card.privateActionHints.map(hint => ({ ...hint })),
+                privateHintOwnerId: card.privateHintOwnerId
+            });
+        }
+    });
+
+    const restoreCard = (card: Card): Card => {
+        const privateHint = privateHintsByCardId.get(card.id);
+        return privateHint ? { ...card, ...privateHint } : card;
+    };
+
+    incomingLocalPlayer.hand = incomingLocalPlayer.hand.map(restoreCard);
+    incomingLocalPlayer.discardPile = incomingLocalPlayer.discardPile.map(restoreCard);
+    return players;
 }
 
 function createOnlineGameStateData(): OnlineGameStateData {
@@ -1774,7 +1826,7 @@ function createOnlineGameStateData(): OnlineGameStateData {
         logs: [...state.logs],
         pendingForcedEffect: pendingForcedEffect ? {
             ...pendingForcedEffect,
-            card: { ...pendingForcedEffect.card }
+            card: cloneCardForOnlineSync(pendingForcedEffect.card)
         } : null
     };
 }
@@ -1857,7 +1909,7 @@ function applyOnlineGameState(data: OnlineGameStateData) {
         selectedCardId = null;
         isResolvingTurnAction = false;
 
-        const players = data.players.map(cloneOnlinePlayer);
+        const players = restoreLocalPrivateHints(data.players.map(cloneOnlinePlayer));
 
         state = {
             deck: [...data.deck],
