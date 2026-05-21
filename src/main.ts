@@ -195,6 +195,8 @@ let pendingForcedEffectsQueue: PendingForcedEffect[] = [];
 let resolvingForcedEffect: PendingForcedEffect | null = null;
 let pendingBaronDuel: PendingBaronDuel | null = null;
 let activeBaronDuelModalKey: string | null = null;
+let pendingKingExchange: PendingKingExchange | null = null;
+let activeKingExchangeModalKey: string | null = null;
 let isHandlingPendingForcedEffect = false;
 let hasShownEndGameModal = false;
 let nextRoundReadyPlayerIds: number[] = [];
@@ -231,6 +233,8 @@ async function resetClientState() {
     resolvingForcedEffect = null;
     pendingBaronDuel = null;
     activeBaronDuelModalKey = null;
+    pendingKingExchange = null;
+    activeKingExchangeModalKey = null;
     isHandlingPendingForcedEffect = false;
     hasShownEndGameModal = false;
     nextRoundReadyPlayerIds = [];
@@ -1291,7 +1295,33 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
             ];
             addLog(`${actor.name} 與 ${target.name} 交換手牌！`);
             await sleep(500);
-            if (!actor.isBot || !target.isBot) {
+            if (isOnlineGameActive() && !pendingKingExchange) {
+                pendingKingExchange = {
+                    actorId,
+                    targetId,
+                    sourceCardId: card.id,
+                    confirmedPlayerIds: [
+                        ...(actor.isBot ? [actorId] : []),
+                        ...(target.isBot ? [targetId] : [])
+                    ]
+                };
+                render();
+                syncOnlineGameState();
+            }
+
+            if (isOnlineGameActive() && pendingKingExchange && isSameKingExchange(pendingKingExchange, {
+                actorId,
+                targetId,
+                sourceCardId: card.id,
+                confirmedPlayerIds: []
+            })) {
+                if (isLocalKingExchangeParticipant(pendingKingExchange) && !hasConfirmedKingExchange(pendingKingExchange, localPlayerId)) {
+                    await showKingExchangeModal(clonePendingKingExchange(pendingKingExchange));
+                }
+                await waitForKingExchangeConfirmations(pendingKingExchange);
+                pendingKingExchange = null;
+                syncOnlineGameState();
+            } else if (!actor.isBot || !target.isBot) {
                 await waitForStatsModalConfirm(
                     '國王交換手牌',
                     `<p>${actor.name} 即將與 ${target.name} 交換手牌。</p>`,
@@ -1524,6 +1554,8 @@ function endGame(winner: Player, reason: string) {
     resolvingForcedEffect = null;
     pendingBaronDuel = null;
     activeBaronDuelModalKey = null;
+    pendingKingExchange = null;
+    activeKingExchangeModalKey = null;
     isHandlingPendingForcedEffect = false;
     state.isGameOver = true;
     state.winner = winner;
@@ -1760,12 +1792,20 @@ interface PendingBaronDuel {
     confirmedPlayerIds: number[];
 }
 
+interface PendingKingExchange {
+    actorId: number;
+    targetId: number;
+    sourceCardId: string;
+    confirmedPlayerIds: number[];
+}
+
 interface OnlineGameStateData extends OnlineGameData {
     isGameOver: boolean;
     winner: Player | null;
     pendingForcedEffect?: PendingForcedEffect | null;
     pendingForcedEffectsQueue?: PendingForcedEffect[];
     pendingBaronDuel: PendingBaronDuel | null;
+    pendingKingExchange?: PendingKingExchange | null;
     nextRoundReadyPlayerIds?: number[];
 }
 
@@ -1970,6 +2010,10 @@ function createOnlineGameStateData(): OnlineGameStateData {
             targetCard: cloneCardForOnlineSync(pendingBaronDuel.targetCard),
             confirmedPlayerIds: [...pendingBaronDuel.confirmedPlayerIds]
         } : null,
+        pendingKingExchange: pendingKingExchange ? {
+            ...pendingKingExchange,
+            confirmedPlayerIds: [...pendingKingExchange.confirmedPlayerIds]
+        } : null,
         nextRoundReadyPlayerIds: [...nextRoundReadyPlayerIds]
     };
 }
@@ -2022,6 +2066,13 @@ function clonePendingBaronDuel(duel: PendingBaronDuel): PendingBaronDuel {
         actorCard: { ...duel.actorCard },
         targetCard: { ...duel.targetCard },
         confirmedPlayerIds: [...duel.confirmedPlayerIds]
+    };
+}
+
+function clonePendingKingExchange(exchange: PendingKingExchange): PendingKingExchange {
+    return {
+        ...exchange,
+        confirmedPlayerIds: [...exchange.confirmedPlayerIds]
     };
 }
 
@@ -2116,6 +2167,84 @@ function waitForBaronDuelConfirmations(duel: PendingBaronDuel): Promise<void> {
     return new Promise(resolve => {
         const wait = () => {
             if (!pendingBaronDuel || !isSameBaronDuel(pendingBaronDuel, duel) || areBaronDuelParticipantsConfirmed(pendingBaronDuel)) {
+                resolve();
+                return;
+            }
+
+            window.setTimeout(wait, 100);
+        };
+
+        wait();
+    });
+}
+
+function getKingExchangeKey(exchange: PendingKingExchange | null) {
+    return exchange ? `${exchange.actorId}:${exchange.targetId}:${exchange.sourceCardId}` : null;
+}
+
+function isSameKingExchange(a: PendingKingExchange | null, b: PendingKingExchange | null) {
+    const aKey = getKingExchangeKey(a);
+    const bKey = getKingExchangeKey(b);
+    return Boolean(aKey && bKey && aKey === bKey);
+}
+
+function isLocalKingExchangeParticipant(exchange: PendingKingExchange | null) {
+    return Boolean(exchange && (exchange.actorId === localPlayerId || exchange.targetId === localPlayerId));
+}
+
+function hasConfirmedKingExchange(exchange: PendingKingExchange | null, playerId: number) {
+    return Boolean(exchange?.confirmedPlayerIds.includes(playerId));
+}
+
+function confirmLocalKingExchange(exchange: PendingKingExchange) {
+    if (!pendingKingExchange || !isSameKingExchange(pendingKingExchange, exchange)) return;
+    if (!pendingKingExchange.confirmedPlayerIds.includes(localPlayerId)) {
+        pendingKingExchange.confirmedPlayerIds = [...pendingKingExchange.confirmedPlayerIds, localPlayerId];
+    }
+    syncOnlineGameState();
+}
+
+function areKingExchangeParticipantsConfirmed(exchange: PendingKingExchange | null) {
+    return Boolean(
+        exchange &&
+        exchange.confirmedPlayerIds.includes(exchange.actorId) &&
+        exchange.confirmedPlayerIds.includes(exchange.targetId)
+    );
+}
+
+async function showKingExchangeModal(exchange: PendingKingExchange) {
+    const exchangeKey = getKingExchangeKey(exchange);
+    if (!exchangeKey || activeKingExchangeModalKey === exchangeKey) return;
+
+    const actor = state.players[exchange.actorId];
+    const target = state.players[exchange.targetId];
+    activeKingExchangeModalKey = exchangeKey;
+    isResolvingTurnAction = true;
+    try {
+        await waitForStatsModalConfirm(
+            '國王交換手牌',
+            `<p>${actor.name} 對 ${target.name} 打出國王，雙方即將交換手牌。</p>`,
+            '確認交換'
+        );
+        confirmLocalKingExchange(exchange);
+    } finally {
+        if (activeKingExchangeModalKey === exchangeKey) {
+            activeKingExchangeModalKey = null;
+        }
+    }
+}
+
+async function handlePendingKingExchange() {
+    if (!pendingKingExchange || !isLocalKingExchangeParticipant(pendingKingExchange)) return;
+    if (hasConfirmedKingExchange(pendingKingExchange, localPlayerId)) return;
+
+    await showKingExchangeModal(clonePendingKingExchange(pendingKingExchange));
+}
+
+function waitForKingExchangeConfirmations(exchange: PendingKingExchange): Promise<void> {
+    return new Promise(resolve => {
+        const wait = () => {
+            if (!pendingKingExchange || !isSameKingExchange(pendingKingExchange, exchange) || areKingExchangeParticipantsConfirmed(pendingKingExchange)) {
                 resolve();
                 return;
             }
@@ -2227,6 +2356,9 @@ function applyOnlineGameState(data: OnlineGameStateData) {
     const incomingPendingBaronDuel = data.pendingBaronDuel
         ? clonePendingBaronDuel(data.pendingBaronDuel)
         : null;
+    const incomingPendingKingExchange = data.pendingKingExchange
+        ? clonePendingKingExchange(data.pendingKingExchange)
+        : null;
 
     if (data.isGameOver) {
         const shouldShowEndGameModal = !hasShownEndGameModal;
@@ -2240,6 +2372,8 @@ function applyOnlineGameState(data: OnlineGameStateData) {
             resolvingForcedEffect = null;
             pendingBaronDuel = null;
             activeBaronDuelModalKey = null;
+            pendingKingExchange = null;
+            activeKingExchangeModalKey = null;
             isHandlingPendingForcedEffect = false;
             nextRoundReadyPlayerIds = [...(data.nextRoundReadyPlayerIds ?? [])];
 
@@ -2283,6 +2417,13 @@ function applyOnlineGameState(data: OnlineGameStateData) {
         incomingPendingBaronDuel &&
         isSameBaronDuel(pendingBaronDuel, incomingPendingBaronDuel)
     );
+    const shouldPreserveKingExchangeInteraction = Boolean(
+        isOnlineGameActive() &&
+        isResolvingTurnAction &&
+        isLocalKingExchangeParticipant(pendingKingExchange) &&
+        incomingPendingKingExchange &&
+        isSameKingExchange(pendingKingExchange, incomingPendingKingExchange)
+    );
     const isRemoteForcedEffectCompletion = Boolean(
         isResolvingTurnAction &&
         pendingForcedEffectsQueue.length > 0 &&
@@ -2310,6 +2451,13 @@ function applyOnlineGameState(data: OnlineGameStateData) {
         pendingBaronDuel = incomingPendingBaronDuel;
         onlineGameInitialized = true;
         void handlePendingBaronDuel();
+        return;
+    }
+
+    if (shouldPreserveKingExchangeInteraction) {
+        pendingKingExchange = incomingPendingKingExchange;
+        onlineGameInitialized = true;
+        void handlePendingKingExchange();
         return;
     }
 
@@ -2346,11 +2494,12 @@ function applyOnlineGameState(data: OnlineGameStateData) {
         };
         pendingForcedEffectsQueue = incomingPendingForcedEffectsQueue;
         pendingBaronDuel = incomingPendingBaronDuel;
+        pendingKingExchange = incomingPendingKingExchange;
         nextRoundReadyPlayerIds = [...(data.nextRoundReadyPlayerIds ?? [])];
         hasShownEndGameModal = false;
 
         onlineGameInitialized = true;
-        if (!isLocalBaronDuelParticipant(pendingBaronDuel)) {
+        if (!isLocalBaronDuelParticipant(pendingBaronDuel) && !isLocalKingExchangeParticipant(pendingKingExchange)) {
             closeModal();
         }
         showScene('game-scene');
@@ -2362,6 +2511,7 @@ function applyOnlineGameState(data: OnlineGameStateData) {
 
     void handlePendingForcedEffect();
     void handlePendingBaronDuel();
+    void handlePendingKingExchange();
 }
 
 function applyOnlineGameData(data: OnlineGameData) {
@@ -2371,6 +2521,7 @@ function applyOnlineGameData(data: OnlineGameData) {
         winner: null,
         pendingForcedEffectsQueue: [],
         pendingBaronDuel: null,
+        pendingKingExchange: null,
         nextRoundReadyPlayerIds: []
     });
 }
@@ -2793,6 +2944,8 @@ function initGame(botCount: number) {
     resolvingForcedEffect = null;
     pendingBaronDuel = null;
     activeBaronDuelModalKey = null;
+    pendingKingExchange = null;
+    activeKingExchangeModalKey = null;
     isHandlingPendingForcedEffect = false;
     hasShownEndGameModal = false;
     nextRoundReadyPlayerIds = [];
@@ -2921,6 +3074,8 @@ function startNextRound() {
     resolvingForcedEffect = null;
     pendingBaronDuel = null;
     activeBaronDuelModalKey = null;
+    pendingKingExchange = null;
+    activeKingExchangeModalKey = null;
     isHandlingPendingForcedEffect = false;
     hasShownEndGameModal = false;
     const firstPlayerId = state.winner.id;
