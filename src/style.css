@@ -260,7 +260,7 @@ h3 {
 
 .card-action-hints {
   display: grid;
-  gap: 2px;
+  gap: 4px;
   width: 100%;
   min-height: 0;
   pointer-events: none;
@@ -269,16 +269,17 @@ h3 {
 .card-action-hint {
   width: 100%;
   box-sizing: border-box;
-  padding: 3px 5px;
-  border-radius: 4px;
+  padding: 5px 7px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.08);
   color: #f1f2f6;
-  font-size: 0.68rem;
+  font-size: 0.86rem;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.35;
   text-align: center;
   white-space: normal;
-  word-break: break-all;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
 .card-action-hint-danger {
@@ -1304,8 +1305,8 @@ h3 {
 
   .opponent-area .discard-container .card-wrapper {
     width: 42px;
-    min-height: 82px;
-    gap: 1px;
+    min-height: 104px;
+    gap: 3px;
   }
 
   .opponent-area .discard-container .card {
@@ -1338,19 +1339,23 @@ h3 {
 
   .opponent-area .discard-container .card-action-hints {
     display: grid !important;
-    gap: 1px;
-    width: 100%;
+    gap: 2px;
+    width: max-content;
+    min-width: 100%;
+    max-width: 66px;
+    justify-self: center;
   }
 
   .opponent-area .discard-container .card-action-hint {
     display: block;
     min-height: 0;
-    padding: 1px 2px;
-    border-radius: 3px;
-    font-size: 0.44rem;
-    line-height: 1.05;
+    padding: 3px 4px;
+    border-radius: 5px;
+    font-size: 0.66rem;
+    line-height: 1.18;
     white-space: normal;
-    word-break: break-all;
+    word-break: normal;
+    overflow-wrap: anywhere;
   }
 
   .opponent-area .card-wrapper {
@@ -1473,8 +1478,8 @@ h3 {
 
   #player-discard .card-wrapper {
     width: 40px;
-    min-height: 88px;
-    gap: 1px;
+    min-height: 112px;
+    gap: 3px;
   }
 
   #player-discard .card {
@@ -1525,9 +1530,11 @@ h3 {
   .discard-container .card-action-hints,
   .played-cards-container .card-action-hints {
     display: grid !important;
-    gap: 1px;
-    width: 100%;
-    min-width: 0;
+    gap: 2px;
+    width: max-content;
+    min-width: 100%;
+    max-width: 76px;
+    justify-self: center;
     overflow: visible;
   }
 
@@ -1535,9 +1542,10 @@ h3 {
   .discard-container .card-action-hint,
   .played-cards-container .card-action-hint {
     min-height: 0;
-    padding: 1px 2px;
-    font-size: 0.55rem;
-    line-height: 1.1;
+    padding: 3px 5px;
+    font-size: 0.7rem;
+    line-height: 1.2;
+    border-radius: 5px;
     white-space: normal;
     word-break: break-word;
     overflow-wrap: anywhere;
@@ -1560,15 +1568,15 @@ h3 {
   }
 
   .card-action-hints {
-    gap: 1px;
+    gap: 2px;
   }
 
   .card-action-hint {
-    min-height: 14px;
-    padding: 1px 3px;
-    font-size: 0.5rem;
-    line-height: 1.05;
-    border-radius: 3px;
+    min-height: 18px;
+    padding: 3px 5px;
+    font-size: 0.7rem;
+    line-height: 1.2;
+    border-radius: 5px;
   }
 
   .card-desc {
