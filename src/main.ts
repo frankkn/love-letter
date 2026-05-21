@@ -1009,9 +1009,12 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
             if (actor.isBot && target.hand[0]) {
                 rememberKnownCard(actorId, targetId, target.hand[0].type);
             }
-            card.actionHints = [
-                { text: `🎯 對 ${target.name} 使用` }
+            const playedPriest = actor.discardPile.find(discarded => discarded.id === card.id) ?? card;
+            playedPriest.actionHints = [
+                { text: `\u{1F3AF} 看見了 ${target.name} 的手牌` }
             ];
+            render();
+            syncOnlineGameState();
             if (!actor.isBot) {
                 const cardUI = createCardUI(target.hand[0], false);
                 cardUI.style.margin = '0 auto';
