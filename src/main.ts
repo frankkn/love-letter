@@ -1010,13 +1010,11 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
                 rememberKnownCard(actorId, targetId, target.hand[0].type);
             }
             const playedPriest = actor.discardPile.find(discarded => discarded.id === card.id) ?? card;
-            const priestTargetCardName = target.hand[0]?.name;
-            const priestHint = priestTargetCardName
-                ? `\u{1F3AF} \u67E5\u770B\u4E86 ${target.name} \u7684 ${priestTargetCardName}`
-                : `\u{1F3AF} \u67E5\u770B\u4E86 ${target.name} \u7684\u624B\u724C`;
+            const priestHint = `\u{1F3AF} \u67E5\u770B\u4E86 ${target.name} \u7684\u624B\u724C`;
             card.actionHints = [{ text: priestHint, variant: 'default' }];
             playedPriest.actionHints = [{ text: priestHint, variant: 'default' }];
             render();
+            addLog(`${actor.name} \u770B\u4E86\u4E00\u4E0B ${target.name} \u7684\u624B\u724C\u3002`);
             syncOnlineGameState();
             if (!actor.isBot) {
                 const cardUI = createCardUI(target.hand[0], false);
@@ -1031,7 +1029,6 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
                     }
                 };
             } else {
-                addLog(`${actor.name} 看了一下 ${target.name} 的手牌。`);
                 if (shouldEndTurn) await endTurn(actorId);
                 else {
                     render();
