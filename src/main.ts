@@ -1384,10 +1384,11 @@ async function discardAndDraw(targetId: number, returnTurnPlayerId: number, shou
         pendingForcedEffectsQueue = [
             ...pendingForcedEffectsQueue,
             {
-            reactorId: targetId,
-            card: discarded,
-            returnTurnPlayerId: inheritedReturnTurnPlayerId,
-            shouldEndTurnAfterResolution: inheritedShouldEndTurn
+                reactorId: targetId,
+                card: discarded,
+                sourcePlayerId: returnTurnPlayerId,
+                returnTurnPlayerId: inheritedReturnTurnPlayerId,
+                shouldEndTurnAfterResolution: inheritedShouldEndTurn
             }
         ];
         render();
@@ -1728,6 +1729,7 @@ interface OnlineGameData {
 interface PendingForcedEffect {
     reactorId: number;
     card: Card;
+    sourcePlayerId: number;
     returnTurnPlayerId: number;
     shouldEndTurnAfterResolution: boolean;
 }
@@ -1982,6 +1984,7 @@ function isForcedEffectCard(card: Card) {
 function clonePendingForcedEffect(effect: PendingForcedEffect): PendingForcedEffect {
     return {
         ...effect,
+        sourcePlayerId: effect.sourcePlayerId ?? effect.returnTurnPlayerId,
         card: { ...effect.card }
     };
 }
@@ -2117,6 +2120,17 @@ function hasLocalPendingForcedEffect(queue = pendingForcedEffectsQueue) {
     return queue.some(effect => effect.reactorId === localPlayerId);
 }
 
+function createForcedEffectNoticeBodyHTML(effect: PendingForcedEffect) {
+    const attacker = state.players[effect.sourcePlayerId] ?? state.players[state.currentTurnPlayerId];
+    const attackerName = attacker?.name ?? '對手';
+
+    return `
+        <p>玩家 ${attackerName} 對你打出了【王子】！</p>
+        <p>你被迫棄掉了手中的【${effect.card.name}】並重新補抽。</p>
+        <p>接下來將執行這張棄牌的連鎖效果。</p>
+    `;
+}
+
 function isResolvingThisForcedEffect(effect: PendingForcedEffect | null) {
     return isSamePendingForcedEffect(resolvingForcedEffect, effect);
 }
@@ -2155,6 +2169,11 @@ async function handlePendingForcedEffect() {
     isResolvingTurnAction = true;
 
     try {
+        await waitForStatsModalConfirm(
+            '【被迫棄牌連鎖】',
+            createForcedEffectNoticeBodyHTML(effect),
+            '確認並執行效果'
+        );
         await applyEffect(effect.reactorId, effect.card, false, undefined, true);
         if (effect.shouldEndTurnAfterResolution && !state.isGameOver && pendingForcedEffectsQueue.length === 0) {
             await endTurn(effect.returnTurnPlayerId);
