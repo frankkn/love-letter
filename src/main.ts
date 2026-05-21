@@ -654,6 +654,39 @@ function getKnownGuardTarget(botId: number, potentialTargets: Player[]): Player 
     return null;
 }
 
+function getRememberedCardType(observerId: number, targetId: number): CardType | null {
+    const rememberedType = state.aiMemory[observerId]?.[targetId];
+    const target = state.players[targetId];
+    if (!rememberedType || !target?.hand.some(card => card.type === rememberedType)) {
+        if (state.aiMemory[observerId]) delete state.aiMemory[observerId][targetId];
+        return null;
+    }
+
+    return rememberedType;
+}
+
+function getBaronLegalTargets(bot: Player): Player[] {
+    return state.players.filter(player => (
+        player.id !== bot.id &&
+        player.isAlive &&
+        !player.isProtected
+    ));
+}
+
+function getBaronRemainingCard(bot: Player, baron: Card): Card | null {
+    return bot.hand.find(card => card.id !== baron.id) ?? null;
+}
+
+function isKnownBaronLoss(bot: Player, baron: Card, target: Player): boolean {
+    const remainingCard = getBaronRemainingCard(bot, baron);
+    const rememberedType = getRememberedCardType(bot.id, target.id);
+    return Boolean(remainingCard && rememberedType && rememberedType > remainingCard.value);
+}
+
+function getSafeBaronTargets(bot: Player, baron: Card, targets: Player[]): Player[] {
+    return targets.filter(target => !isKnownBaronLoss(bot, baron, target));
+}
+
 function drawCard(playerId: number): boolean {
     const player = state.players[playerId];
     if (
@@ -879,6 +912,11 @@ async function applyEffect(playerId: number, card: Card, shouldEndTurn = true, r
             if (card.type === CardType.Prince) {
                 const opponentTargets = allPotentialTargets.filter(target => target.id !== playerId);
                 botTargets = opponentTargets.length > 0 ? opponentTargets : allPotentialTargets.filter(target => target.id === playerId);
+            } else if (card.type === CardType.Baron) {
+                const safeTargets = getSafeBaronTargets(player, card, botTargets);
+                if (safeTargets.length > 0) {
+                    botTargets = safeTargets;
+                }
             }
 
             const knownGuardTarget = card.type === CardType.Guard
@@ -1431,6 +1469,11 @@ function getAICardPlayWeight(bot: Player, card: Card): number {
         case CardType.Baron:
             weight = 8;
             if (remainingCard) {
+                const legalTargets = getBaronLegalTargets(bot);
+                if (legalTargets.some(target => isKnownBaronLoss(bot, card, target))) {
+                    weight = 0;
+                    break;
+                }
                 if (remainingCard.value <= CardType.Guard) weight = 0.1;
                 else if (remainingCard.value <= CardType.Priest) weight = 2;
                 else if (remainingCard.value >= CardType.Prince) weight = 15;
@@ -1475,9 +1518,15 @@ function chooseAICardToPlay(bot: Player): Card {
 
     const weightedCards = playable.map(card => ({
         card,
-        weight: Math.max(0.1, getAICardPlayWeight(bot, card))
+        weight: Math.max(0, getAICardPlayWeight(bot, card))
     }));
-    const totalWeight = weightedCards.reduce((sum, item) => sum + item.weight, 0);
+    let totalWeight = weightedCards.reduce((sum, item) => sum + item.weight, 0);
+    if (totalWeight <= 0) {
+        weightedCards.forEach(item => {
+            item.weight = 1;
+        });
+        totalWeight = weightedCards.length;
+    }
     let roll = Math.random() * totalWeight;
 
     for (const item of weightedCards) {
