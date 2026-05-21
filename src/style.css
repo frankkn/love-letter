@@ -1244,7 +1244,7 @@ h3 {
     max-width: none;
     box-sizing: border-box;
     display: grid;
-    grid-template-rows: 16px minmax(116px, 1fr) 74px;
+    grid-template-rows: 16px minmax(0, 3fr) minmax(0, 1fr);
     height: 100%;
     align-items: stretch;
     gap: 3px;
@@ -1273,8 +1273,8 @@ h3 {
     align-content: start;
     justify-items: center;
     min-height: 0;
-    height: 140px;
-    max-height: 140px;
+    height: 100%;
+    max-height: none;
     margin-bottom: 0;
     padding: 3px;
     gap: 2px;
@@ -1286,7 +1286,7 @@ h3 {
     grid-row: 3;
     box-sizing: border-box;
     min-height: 0;
-    height: 74px;
+    height: 100%;
     margin-bottom: 0;
     padding: 3px;
     gap: 4px;
@@ -1297,14 +1297,14 @@ h3 {
   }
 
   .opponent-area .discard-container .card-wrapper {
-    width: 34px;
-    min-height: 56px;
+    width: 38px;
+    min-height: 72px;
     gap: 1px;
   }
 
   .opponent-area .discard-container .card {
-    width: 32px;
-    height: 44px;
+    width: 38px;
+    height: 54px;
     padding: 1px;
     border-radius: 4px;
   }
@@ -1315,7 +1315,7 @@ h3 {
 
   .opponent-area .discard-container .card-header {
     display: flex;
-    min-height: 10px;
+    min-height: 13px;
     justify-content: flex-end;
   }
 
@@ -1324,10 +1324,10 @@ h3 {
   }
 
   .opponent-area .discard-container .card-value {
-    width: 12px;
-    height: 12px;
-    flex-basis: 12px;
-    font-size: 0.45rem;
+    width: 14px;
+    height: 14px;
+    flex-basis: 14px;
+    font-size: 0.52rem;
   }
 
   .opponent-area .discard-container .card-action-hints {
