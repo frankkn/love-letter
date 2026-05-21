@@ -196,6 +196,7 @@ let resolvingForcedEffect: PendingForcedEffect | null = null;
 let pendingBaronDuel: PendingBaronDuel | null = null;
 let activeBaronDuelModalKey: string | null = null;
 let isHandlingPendingForcedEffect = false;
+let hasShownEndGameModal = false;
 
 async function leaveRoomIfConnected(room: Room | null) {
     if (!room) return;
@@ -230,6 +231,7 @@ async function resetClientState() {
     pendingBaronDuel = null;
     activeBaronDuelModalKey = null;
     isHandlingPendingForcedEffect = false;
+    hasShownEndGameModal = false;
     selectedCardId = null;
     isResolvingTurnAction = false;
     queuedBotTurnId = null;
@@ -1534,6 +1536,9 @@ function endGame(winner: Player, reason: string) {
 function showEndGameModal() {
     if (!state.winner) return;
 
+    hasShownEndGameModal = true;
+    showResultBtn.style.display = 'block';
+
     const champion = getLeagueChampion();
     const primaryButton = champion
         ? `<button class="modal-confirm-btn" id="view-champion-btn">查看獲勝者</button>`
@@ -1546,6 +1551,9 @@ function showEndGameModal() {
         </div>
         ${createRankingHTML()}
     `, `${primaryButton}<button class="modal-confirm-btn" id="ranking-return-btn" style="margin-left: 0.65rem; background: #64748b;">返回</button>`);
+
+    const rankingReturnBtn = document.getElementById('ranking-return-btn')!;
+    rankingReturnBtn.textContent = '📊 留在戰場查看紀錄';
 
     const nextRoundBtn = document.getElementById('next-round-btn');
     if (nextRoundBtn) {
@@ -1560,8 +1568,9 @@ function showEndGameModal() {
         viewChampionBtn.onclick = showChampionModal;
     }
 
-    document.getElementById('ranking-return-btn')!.onclick = () => {
+    rankingReturnBtn.onclick = () => {
         closeModal();
+        showResultBtn.style.display = 'block';
     };
 }
 
@@ -2216,6 +2225,7 @@ function applyOnlineGameState(data: OnlineGameStateData) {
         : null;
 
     if (data.isGameOver) {
+        const shouldShowEndGameModal = !hasShownEndGameModal;
         isApplyingOnlineState = true;
 
         try {
@@ -2242,10 +2252,14 @@ function applyOnlineGameState(data: OnlineGameStateData) {
             };
 
             onlineGameInitialized = true;
-            closeModal();
+            if (shouldShowEndGameModal) {
+                closeModal();
+            }
             showScene('game-scene');
             render();
-            showEndGameModal();
+            if (shouldShowEndGameModal) {
+                showEndGameModal();
+            }
             window.requestAnimationFrame(() => render());
         } finally {
             isApplyingOnlineState = false;
@@ -2768,6 +2782,7 @@ function initGame(botCount: number) {
     pendingBaronDuel = null;
     activeBaronDuelModalKey = null;
     isHandlingPendingForcedEffect = false;
+    hasShownEndGameModal = false;
     queuedBotTurnId = null;
     selectedCardId = null;
     isResolvingTurnAction = false;
@@ -2821,6 +2836,7 @@ function startNextRound() {
     pendingBaronDuel = null;
     activeBaronDuelModalKey = null;
     isHandlingPendingForcedEffect = false;
+    hasShownEndGameModal = false;
     const firstPlayerId = state.winner.id;
     let deck = createDeck();
     deck = shuffle(deck);
