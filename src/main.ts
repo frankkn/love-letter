@@ -2294,7 +2294,7 @@ function applyOnlineGameState(data: OnlineGameStateData) {
             (
                 isResolvingTurnAction &&
                 (
-                    (data.currentTurnPlayerId === localPlayerId && !isRemoteForcedEffectCompletion) ||
+                    (data.currentTurnPlayerId === localPlayerId && state.currentTurnPlayerId === localPlayerId && !isRemoteForcedEffectCompletion) ||
                     isResolvingLocalForcedEffect(incomingPendingForcedEffectsQueue) ||
                     (data.currentTurnPlayerId !== localPlayerId && (hasLocalPendingForcedEffect() || isLocalForcedEffect(resolvingForcedEffect)))
                 )
