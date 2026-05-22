@@ -44,6 +44,34 @@ h3 {
   color: #ffa502;
 }
 
+#player-area > h3,
+.opponent-area > h3 {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.player-title-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-status-badge {
+  flex: 0 0 auto;
+  padding: 0.14rem 0.42rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 77, 77, 0.88);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
 .coin-icons {
   display: inline-flex;
   align-items: center;
@@ -990,24 +1018,22 @@ h3 {
 
 /* 淘汰視覺效果 */
 .eliminated {
-  opacity: 0.5;
-  filter: grayscale(1);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .eliminated::after {
-  content: '❌ 已出局';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) rotate(-15deg);
-  background: rgba(255, 0, 0, 0.8);
-  color: white;
-  padding: 5px 20px;
-  border-radius: 5px;
-  font-size: 1.5rem;
-  font-weight: bold;
-  z-index: 10;
-  pointer-events: none;
+  content: none;
+  display: none;
+}
+
+.eliminated > h3 {
+  color: #8f8f8f;
+}
+
+.eliminated .discard-container,
+.eliminated .hand-container {
+  opacity: 0.5;
+  filter: grayscale(1);
 }
 
 /* 當前回合高亮 */
@@ -1337,7 +1363,7 @@ h3 {
     min-width: 0;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 0.2rem;
     min-height: 1rem;
     white-space: nowrap;
@@ -1476,13 +1502,10 @@ h3 {
     display: none !important;
   }
 
-  .opponent-area.eliminated::after {
-    padding: 3px 8px;
-    border-radius: 4px;
-    font-size: 0.9rem;
-    line-height: 1;
-    white-space: nowrap;
-    transform: translate(-50%, -50%) rotate(-8deg);
+  .opponent-area .player-status-badge {
+    padding: 0.08rem 0.28rem;
+    font-size: 0.56rem;
+    line-height: 1.15;
   }
 
   #opponents-container[data-opponent-count="1"],

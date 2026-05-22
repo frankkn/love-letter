@@ -401,6 +401,12 @@ function getCoinIcons(coins: number): string {
         : '';
 }
 
+function getPlayerTitleHTML(player: Player, suffix = ''): string {
+    const statusBadge = player.isAlive ? '' : '<span class="player-status-badge">已出局</span>';
+    const title = `${escapeHTML(player.name)}${suffix ? ` ${escapeHTML(suffix)}` : ''}`;
+    return `<span class="player-title-name">${title}</span>${getCoinIcons(player.coins)}${statusBadge}`;
+}
+
 function render() {
     deckCountEl.textContent = `牌堆剩餘：${state.deck.length}`;
     
@@ -423,7 +429,7 @@ function render() {
         botArea.className = `area opponent-area ${bot.isProtected ? 'protected' : ''} ${!bot.isAlive ? 'eliminated' : ''} ${isActive ? 'active-turn' : ''} ${isWinner ? 'winner-area' : ''}`;
         botArea.innerHTML = `
             ${isWinner ? '<div class="winner-crown" title="勝利者">♛</div>' : ''}
-            <h3>${bot.name}${getCoinIcons(bot.coins)}</h3>
+            <h3>${getPlayerTitleHTML(bot)}</h3>
             <div class="discard-container"></div>
             <div class="hand-container"></div>
         `;
@@ -468,7 +474,7 @@ function render() {
 
     const humanTitle = playerAreaEl.querySelector('h3');
     if (humanTitle) {
-        humanTitle.innerHTML = `${human.name}${getCoinIcons(human.coins)} 狀態`;
+        humanTitle.innerHTML = getPlayerTitleHTML(human, '狀態');
     }
     
     playerHandEl.innerHTML = '';
