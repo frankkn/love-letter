@@ -1452,12 +1452,20 @@ h3 {
     transform: translate(-50%, -50%) rotate(-8deg);
   }
 
+  #opponents-container[data-opponent-count="1"],
   #opponents-container[data-opponent-count="2"],
   #opponents-container[data-opponent-count="3"] {
     flex: initial;
     grid-template-columns: minmax(0, 1fr);
     grid-auto-rows: minmax(0, 1fr);
     height: 100%;
+  }
+
+  #game-scene[data-opponent-count="1"] .main-battle-area {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    gap: 5px;
   }
 
   #game-scene[data-opponent-count="2"] .main-battle-area {
@@ -1474,6 +1482,13 @@ h3 {
     gap: 5px;
   }
 
+  #game-scene[data-opponent-count="1"] #opponents-container {
+    grid-column: 1;
+    grid-row: 1;
+    width: 100%;
+    min-width: 0;
+  }
+
   #game-scene[data-opponent-count="2"] #opponents-container {
     grid-column: 1;
     grid-row: 1 / span 2;
@@ -1488,6 +1503,11 @@ h3 {
     min-width: 0;
   }
 
+  #game-scene[data-opponent-count="1"] #player-area {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
   #game-scene[data-opponent-count="2"] #player-area {
     grid-column: 1;
     grid-row: 3;
@@ -1498,9 +1518,11 @@ h3 {
     grid-row: 4;
   }
 
+  #opponents-container[data-opponent-count="1"] .opponent-area,
   #opponents-container[data-opponent-count="2"] .opponent-area,
   #opponents-container[data-opponent-count="3"] .opponent-area,
   #game-scene[data-opponent-count="3"] #player-area,
+  #game-scene[data-opponent-count="1"] #player-area,
   #game-scene[data-opponent-count="2"] #player-area {
     grid-template-columns: minmax(0, 1fr) 76px;
     grid-template-rows: minmax(0, 1fr);
@@ -1509,9 +1531,11 @@ h3 {
     overflow: visible !important;
   }
 
+  #opponents-container[data-opponent-count="1"] .opponent-area h3,
   #opponents-container[data-opponent-count="2"] .opponent-area h3,
   #opponents-container[data-opponent-count="3"] .opponent-area h3,
   #game-scene[data-opponent-count="3"] #player-area h3,
+  #game-scene[data-opponent-count="1"] #player-area h3,
   #game-scene[data-opponent-count="2"] #player-area h3 {
     grid-column: 2;
     grid-row: 1;
@@ -1527,9 +1551,11 @@ h3 {
     z-index: 1;
   }
 
+  #opponents-container[data-opponent-count="1"] .opponent-area .discard-container,
   #opponents-container[data-opponent-count="2"] .opponent-area .discard-container,
   #opponents-container[data-opponent-count="3"] .opponent-area .discard-container,
   #game-scene[data-opponent-count="3"] #player-discard,
+  #game-scene[data-opponent-count="1"] #player-discard,
   #game-scene[data-opponent-count="2"] #player-discard {
     grid-column: 1;
     grid-row: 1;
@@ -1539,9 +1565,11 @@ h3 {
     padding: 0.25rem;
   }
 
+  #opponents-container[data-opponent-count="1"] .opponent-area .hand-container,
   #opponents-container[data-opponent-count="2"] .opponent-area .hand-container,
   #opponents-container[data-opponent-count="3"] .opponent-area .hand-container,
   #game-scene[data-opponent-count="3"] #player-hand,
+  #game-scene[data-opponent-count="1"] #player-hand,
   #game-scene[data-opponent-count="2"] #player-hand {
     grid-column: 2;
     grid-row: 1;
@@ -1559,6 +1587,7 @@ h3 {
     z-index: 2;
   }
 
+  #opponents-container[data-opponent-count="1"] .opponent-area .discard-container .card-wrapper,
   #opponents-container[data-opponent-count="2"] .opponent-area .discard-container .card-wrapper,
   #opponents-container[data-opponent-count="3"] .opponent-area .discard-container .card-wrapper {
     width: 78px;
@@ -1567,6 +1596,7 @@ h3 {
     align-self: start;
   }
 
+  #opponents-container[data-opponent-count="1"] .opponent-area .discard-container .card,
   #opponents-container[data-opponent-count="2"] .opponent-area .discard-container .card,
   #opponents-container[data-opponent-count="3"] .opponent-area .discard-container .card {
     width: 54px;
@@ -1576,6 +1606,7 @@ h3 {
     gap: 1px;
   }
 
+  #opponents-container[data-opponent-count="1"] .opponent-area .discard-container .card-header,
   #opponents-container[data-opponent-count="2"] .opponent-area .discard-container .card-header,
   #opponents-container[data-opponent-count="3"] .opponent-area .discard-container .card-header {
     min-height: 14px;
@@ -1583,6 +1614,7 @@ h3 {
     justify-content: space-between;
   }
 
+  #opponents-container[data-opponent-count="1"] .opponent-area .discard-container .card-name,
   #opponents-container[data-opponent-count="2"] .opponent-area .discard-container .card-name,
   #opponents-container[data-opponent-count="3"] .opponent-area .discard-container .card-name {
     display: block;
@@ -1592,6 +1624,7 @@ h3 {
     text-align: left;
   }
 
+  #opponents-container[data-opponent-count="1"] .opponent-area .discard-container .card-value,
   #opponents-container[data-opponent-count="2"] .opponent-area .discard-container .card-value,
   #opponents-container[data-opponent-count="3"] .opponent-area .discard-container .card-value {
     width: 14px;
@@ -1600,6 +1633,7 @@ h3 {
     font-size: 0.52rem;
   }
 
+  #opponents-container[data-opponent-count="1"] .opponent-area .discard-container .card-action-hints,
   #opponents-container[data-opponent-count="2"] .opponent-area .discard-container .card-action-hints,
   #opponents-container[data-opponent-count="3"] .opponent-area .discard-container .card-action-hints {
     display: grid !important;
@@ -1611,6 +1645,7 @@ h3 {
     overflow: visible;
   }
 
+  #opponents-container[data-opponent-count="1"] .opponent-area .discard-container .card-action-hint,
   #opponents-container[data-opponent-count="2"] .opponent-area .discard-container .card-action-hint,
   #opponents-container[data-opponent-count="3"] .opponent-area .discard-container .card-action-hint {
     min-height: 0;
@@ -1624,12 +1659,14 @@ h3 {
     text-align: center;
   }
 
+  #opponents-container[data-opponent-count="1"] .opponent-area .hand-container .card-wrapper,
   #opponents-container[data-opponent-count="2"] .opponent-area .hand-container .card-wrapper,
   #opponents-container[data-opponent-count="3"] .opponent-area .hand-container .card-wrapper {
     width: 50px;
     gap: 2px;
   }
 
+  #opponents-container[data-opponent-count="1"] .opponent-area .hand-container .card,
   #opponents-container[data-opponent-count="2"] .opponent-area .hand-container .card,
   #opponents-container[data-opponent-count="3"] .opponent-area .hand-container .card {
     width: 50px;
@@ -1639,20 +1676,26 @@ h3 {
     gap: 2px;
   }
 
+  #opponents-container[data-opponent-count="1"] .opponent-area .hand-container .card-wrapper:has(.card-selected),
   #opponents-container[data-opponent-count="2"] .opponent-area .hand-container .card-wrapper:has(.card-selected),
   #opponents-container[data-opponent-count="3"] .opponent-area .hand-container .card-wrapper:has(.card-selected),
+  #game-scene[data-opponent-count="1"] #player-hand .card-wrapper:has(.card-selected),
   #game-scene[data-opponent-count="2"] #player-hand .card-wrapper:has(.card-selected),
   #game-scene[data-opponent-count="3"] #player-hand .card-wrapper:has(.card-selected),
+  #opponents-container[data-opponent-count="1"] .opponent-area .hand-container .card-wrapper-hovering,
   #opponents-container[data-opponent-count="2"] .opponent-area .hand-container .card-wrapper-hovering,
   #opponents-container[data-opponent-count="3"] .opponent-area .hand-container .card-wrapper-hovering,
   #game-scene[data-opponent-count="3"] #player-hand .card-wrapper-hovering,
+  #game-scene[data-opponent-count="1"] #player-hand .card-wrapper-hovering,
   #game-scene[data-opponent-count="2"] #player-hand .card-wrapper-hovering {
     z-index: 10000;
   }
 
+  #opponents-container[data-opponent-count="1"] .opponent-area .hand-container .card-desc,
   #opponents-container[data-opponent-count="2"] .opponent-area .hand-container .card-desc,
   #opponents-container[data-opponent-count="3"] .opponent-area .hand-container .card-desc,
   #game-scene[data-opponent-count="3"] #player-hand .card-desc,
+  #game-scene[data-opponent-count="1"] #player-hand .card-desc,
   #game-scene[data-opponent-count="2"] #player-hand .card-desc {
     left: auto;
     right: 0;
@@ -1730,25 +1773,31 @@ h3 {
     gap: 2px;
   }
 
+  #opponents-container[data-opponent-count="1"] .opponent-area .hand-container .card-header,
   #opponents-container[data-opponent-count="2"] .opponent-area .hand-container .card-header,
   #opponents-container[data-opponent-count="3"] .opponent-area .hand-container .card-header,
   #game-scene[data-opponent-count="3"] #player-hand .card-header,
+  #game-scene[data-opponent-count="1"] #player-hand .card-header,
   #game-scene[data-opponent-count="2"] #player-hand .card-header {
     min-height: 14px;
     gap: 1px;
   }
 
+  #opponents-container[data-opponent-count="1"] .opponent-area .hand-container .card-name,
   #opponents-container[data-opponent-count="2"] .opponent-area .hand-container .card-name,
   #opponents-container[data-opponent-count="3"] .opponent-area .hand-container .card-name,
   #game-scene[data-opponent-count="3"] #player-hand .card-name,
+  #game-scene[data-opponent-count="1"] #player-hand .card-name,
   #game-scene[data-opponent-count="2"] #player-hand .card-name {
     font-size: 0.5rem;
     line-height: 1;
   }
 
+  #opponents-container[data-opponent-count="1"] .opponent-area .hand-container .card-value,
   #opponents-container[data-opponent-count="2"] .opponent-area .hand-container .card-value,
   #opponents-container[data-opponent-count="3"] .opponent-area .hand-container .card-value,
   #game-scene[data-opponent-count="3"] #player-hand .card-value,
+  #game-scene[data-opponent-count="1"] #player-hand .card-value,
   #game-scene[data-opponent-count="2"] #player-hand .card-value {
     width: 14px;
     height: 14px;
