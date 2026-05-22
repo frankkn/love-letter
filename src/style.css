@@ -1534,8 +1534,8 @@ h3 {
     grid-column: 1;
     grid-row: 1;
     grid-template-columns: repeat(3, minmax(50px, 1fr));
-    grid-auto-rows: minmax(126px, auto);
-    gap: 3px;
+    grid-auto-rows: minmax(164px, auto);
+    gap: 6px 3px;
     padding: 0.25rem;
   }
 
@@ -1562,8 +1562,9 @@ h3 {
   #opponents-container[data-opponent-count="2"] .opponent-area .discard-container .card-wrapper,
   #opponents-container[data-opponent-count="3"] .opponent-area .discard-container .card-wrapper {
     width: 78px;
-    min-height: 126px;
-    gap: 3px;
+    min-height: 158px;
+    gap: 5px;
+    align-self: start;
   }
 
   #opponents-container[data-opponent-count="2"] .opponent-area .discard-container .card,
@@ -1602,7 +1603,7 @@ h3 {
   #opponents-container[data-opponent-count="2"] .opponent-area .discard-container .card-action-hints,
   #opponents-container[data-opponent-count="3"] .opponent-area .discard-container .card-action-hints {
     display: grid !important;
-    gap: 2px;
+    gap: 4px;
     width: 78px;
     min-width: 0;
     max-width: 78px;
@@ -1613,9 +1614,9 @@ h3 {
   #opponents-container[data-opponent-count="2"] .opponent-area .discard-container .card-action-hint,
   #opponents-container[data-opponent-count="3"] .opponent-area .discard-container .card-action-hint {
     min-height: 0;
-    padding: 3px 4px;
-    font-size: 0.66rem;
-    line-height: 1.2;
+    padding: 4px 4px;
+    font-size: 0.64rem;
+    line-height: 1.35;
     border-radius: 5px;
     white-space: normal;
     word-break: break-word;
@@ -1692,10 +1693,10 @@ h3 {
     padding: 0.25rem;
     display: grid;
     grid-template-columns: repeat(3, minmax(50px, 1fr));
-    grid-auto-rows: minmax(112px, auto);
+    grid-auto-rows: minmax(164px, auto);
     align-content: start;
     justify-items: center;
-    gap: 3px;
+    gap: 6px 3px;
     overflow-y: auto !important;
     overflow-x: hidden !important;
   }
@@ -1800,9 +1801,10 @@ h3 {
 
   #player-discard .card-wrapper {
     width: 78px;
-    min-height: 126px;
-    gap: 3px;
+    min-height: 158px;
+    gap: 5px;
     align-items: center;
+    align-self: start;
   }
 
   #player-discard .card {
@@ -1857,7 +1859,7 @@ h3 {
   #player-discard .card-action-hints,
   .played-cards-container .card-action-hints {
     display: grid !important;
-    gap: 2px;
+    gap: 4px;
     width: 78px;
     min-width: 0;
     max-width: 78px;
@@ -1868,9 +1870,9 @@ h3 {
   #player-discard .card-action-hint,
   .played-cards-container .card-action-hint {
     min-height: 0;
-    padding: 3px 4px;
-    font-size: 0.66rem;
-    line-height: 1.2;
+    padding: 4px 4px;
+    font-size: 0.64rem;
+    line-height: 1.35;
     border-radius: 5px;
     white-space: normal;
     word-break: break-word;
