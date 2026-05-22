@@ -2512,8 +2512,15 @@ function applyOnlineGameState(data: OnlineGameStateData) {
         pendingForcedEffectsQueue.length > 0 &&
         incomingPendingForcedEffectsQueue.length === 0
     );
+    const hasNewLocalPendingForcedEffect = incomingPendingForcedEffectsQueue.some(
+        incomingEffect =>
+            incomingEffect.reactorId === localPlayerId &&
+            !isSamePendingForcedEffect(resolvingForcedEffect, incomingEffect) &&
+            !pendingForcedEffectsQueue.some(localEffect => isSamePendingForcedEffect(localEffect, incomingEffect))
+    );
     const shouldPreserveLocalInteraction = Boolean(
         isOnlineGameActive() &&
+        !hasNewLocalPendingForcedEffect &&
         (
             (
                 isResolvingTurnAction &&
