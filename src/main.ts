@@ -412,6 +412,7 @@ function render() {
     opponentsContainerEl.innerHTML = '';
     const opponents = state.players.filter(player => player.id !== localPlayer.id);
     opponentsContainerEl.dataset.opponentCount = String(opponents.length);
+    gameSceneEl.dataset.opponentCount = String(opponents.length);
     opponents.forEach(bot => {
         const botArea = document.createElement('div');
         const isActive = !state.isGameOver && state.currentTurnPlayerId === bot.id;

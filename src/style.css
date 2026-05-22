@@ -1057,6 +1057,7 @@ h3 {
 
   #game-scene {
     flex-direction: column;
+    flex-wrap: nowrap;
     align-items: stretch;
     justify-content: flex-start;
     gap: 6px;
@@ -1448,79 +1449,139 @@ h3 {
   }
 
   #opponents-container[data-opponent-count="2"] {
-    flex: 1.7 1 64%;
+    flex: initial;
     grid-template-columns: minmax(0, 1fr);
     grid-auto-rows: minmax(0, 1fr);
+    height: 100%;
   }
 
-  #opponents-container[data-opponent-count="2"] .opponent-area {
-    grid-template-columns: minmax(0, 1fr) 58px;
-    grid-template-rows: auto minmax(0, 1fr);
-    gap: 4px 6px;
+  #game-scene[data-opponent-count="2"] .main-battle-area {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: repeat(3, minmax(0, 1fr));
+    gap: 5px;
   }
 
-  #opponents-container[data-opponent-count="2"] .opponent-area h3 {
-    grid-column: 1 / -1;
-    grid-row: 1;
-  }
-
-  #opponents-container[data-opponent-count="2"] .opponent-area .discard-container {
+  #game-scene[data-opponent-count="2"] #opponents-container {
     grid-column: 1;
-    grid-row: 2;
-    grid-template-columns: repeat(4, minmax(40px, 1fr));
-    grid-auto-rows: minmax(58px, auto);
-    gap: 2px;
-    padding: 3px;
+    grid-row: 1 / span 2;
+    width: 100%;
+    min-width: 0;
   }
 
-  #opponents-container[data-opponent-count="2"] .opponent-area .hand-container {
+  #game-scene[data-opponent-count="2"] #player-area {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  #opponents-container[data-opponent-count="2"] .opponent-area,
+  #game-scene[data-opponent-count="2"] #player-area {
+    grid-template-columns: minmax(0, 1fr) 76px;
+    grid-template-rows: minmax(0, 1fr);
+    gap: 4px 6px;
+    margin-top: 0;
+  }
+
+  #opponents-container[data-opponent-count="2"] .opponent-area h3,
+  #game-scene[data-opponent-count="2"] #player-area h3 {
     grid-column: 2;
-    grid-row: 2;
+    grid-row: 1;
+    align-self: start;
+    justify-content: center;
+    min-height: 16px;
+    margin: 0;
+    padding: 0;
+    border-bottom: 0;
+    font-size: 0.68rem;
+    line-height: 1;
+    text-align: center;
+    z-index: 2;
+  }
+
+  #opponents-container[data-opponent-count="2"] .opponent-area .discard-container,
+  #game-scene[data-opponent-count="2"] #player-discard {
+    grid-column: 1;
+    grid-row: 1;
+    grid-template-columns: repeat(3, minmax(50px, 1fr));
+    grid-auto-rows: minmax(108px, auto);
+    gap: 3px;
+    padding: 0.25rem;
+  }
+
+  #opponents-container[data-opponent-count="2"] .opponent-area .hand-container,
+  #game-scene[data-opponent-count="2"] #player-hand {
+    grid-column: 2;
+    grid-row: 1;
+    box-sizing: border-box;
+    min-height: 0;
+    height: 100%;
     flex-direction: column;
     flex-wrap: nowrap;
-    gap: 4px;
+    gap: 0.35rem;
     justify-content: center;
     align-items: center;
+    padding: 18px 0.2rem 0.2rem;
+    overflow: hidden !important;
   }
 
   #opponents-container[data-opponent-count="2"] .opponent-area .discard-container .card-wrapper {
-    width: 40px;
-    min-height: 58px;
-    gap: 0;
+    width: 50px;
+    min-height: 108px;
+    gap: 3px;
   }
 
   #opponents-container[data-opponent-count="2"] .opponent-area .discard-container .card {
-    width: 38px;
-    height: 52px;
-    padding: 1px;
+    width: 46px;
+    height: 64px;
+    padding: 2px;
     border-radius: 4px;
+    gap: 1px;
   }
 
   #opponents-container[data-opponent-count="2"] .opponent-area .discard-container .card-header {
-    min-height: 9px;
+    min-height: 12px;
   }
 
   #opponents-container[data-opponent-count="2"] .opponent-area .discard-container .card-value {
-    width: 12px;
-    height: 12px;
-    flex-basis: 12px;
-    font-size: 0.45rem;
+    width: 15px;
+    height: 15px;
+    flex-basis: 15px;
+    font-size: 0.56rem;
   }
 
   #opponents-container[data-opponent-count="2"] .opponent-area .discard-container .card-action-hints {
-    display: none !important;
+    display: grid !important;
+    gap: 2px;
+    width: max-content;
+    min-width: 100%;
+    max-width: 86px;
+    justify-self: center;
+    overflow: visible;
+  }
+
+  #opponents-container[data-opponent-count="2"] .opponent-area .discard-container .card-action-hint {
+    min-height: 0;
+    padding: 3px 5px;
+    font-size: 0.7rem;
+    line-height: 1.2;
+    border-radius: 5px;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    text-align: center;
   }
 
   #opponents-container[data-opponent-count="2"] .opponent-area .hand-container .card-wrapper {
-    width: 42px;
+    width: 50px;
     gap: 2px;
   }
 
   #opponents-container[data-opponent-count="2"] .opponent-area .hand-container .card {
-    width: 42px;
-    height: 58px;
-    padding: 2px;
-    border-radius: 6px;
+    width: 50px;
+    height: 70px;
+    padding: 3px;
+    border-radius: 7px;
+    gap: 2px;
   }
 
   #player-area {
