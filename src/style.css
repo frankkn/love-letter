@@ -1480,6 +1480,7 @@ h3 {
     grid-template-rows: minmax(0, 1fr);
     gap: 4px 6px;
     margin-top: 0;
+    overflow: visible !important;
   }
 
   #opponents-container[data-opponent-count="2"] .opponent-area h3,
@@ -1495,7 +1496,7 @@ h3 {
     font-size: 0.68rem;
     line-height: 1;
     text-align: center;
-    z-index: 2;
+    z-index: 1;
   }
 
   #opponents-container[data-opponent-count="2"] .opponent-area .discard-container,
@@ -1521,7 +1522,9 @@ h3 {
     justify-content: center;
     align-items: center;
     padding: 18px 0.2rem 0.2rem;
-    overflow: hidden !important;
+    overflow: visible !important;
+    position: relative;
+    z-index: 2;
   }
 
   #opponents-container[data-opponent-count="2"] .opponent-area .discard-container .card-wrapper {
@@ -1582,6 +1585,21 @@ h3 {
     padding: 3px;
     border-radius: 7px;
     gap: 2px;
+  }
+
+  #opponents-container[data-opponent-count="2"] .opponent-area .hand-container .card-wrapper:has(.card-selected),
+  #game-scene[data-opponent-count="2"] #player-hand .card-wrapper:has(.card-selected),
+  #opponents-container[data-opponent-count="2"] .opponent-area .hand-container .card-wrapper-hovering,
+  #game-scene[data-opponent-count="2"] #player-hand .card-wrapper-hovering {
+    z-index: 10000;
+  }
+
+  #opponents-container[data-opponent-count="2"] .opponent-area .hand-container .card-desc,
+  #game-scene[data-opponent-count="2"] #player-hand .card-desc {
+    left: auto;
+    right: 0;
+    transform: none;
+    z-index: 10001;
   }
 
   #player-area {
@@ -1652,6 +1670,26 @@ h3 {
     padding: 3px;
     border-radius: 7px;
     gap: 2px;
+  }
+
+  #opponents-container[data-opponent-count="2"] .opponent-area .hand-container .card-header,
+  #game-scene[data-opponent-count="2"] #player-hand .card-header {
+    min-height: 14px;
+    gap: 1px;
+  }
+
+  #opponents-container[data-opponent-count="2"] .opponent-area .hand-container .card-name,
+  #game-scene[data-opponent-count="2"] #player-hand .card-name {
+    font-size: 0.5rem;
+    line-height: 1;
+  }
+
+  #opponents-container[data-opponent-count="2"] .opponent-area .hand-container .card-value,
+  #game-scene[data-opponent-count="2"] #player-hand .card-value {
+    width: 14px;
+    height: 14px;
+    flex-basis: 14px;
+    font-size: 0.5rem;
   }
 
   #player-discard .card-wrapper {

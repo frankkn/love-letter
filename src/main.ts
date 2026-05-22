@@ -475,9 +475,6 @@ function render() {
         const cardUI = createCardUI(card, isPlayable);
         const cardEl = cardUI.querySelector('.card');
         cardEl?.classList.toggle('card-selected', selectedCardId === card.id);
-        if (cardEl instanceof HTMLElement && selectedCardId === card.id) {
-            positionCardDescription(cardEl);
-        }
         cardUI.onclick = event => {
             event.stopPropagation();
             if (selectedCardId !== card.id) {
@@ -491,6 +488,9 @@ function render() {
             }
         };
         playerHandEl.appendChild(cardUI);
+        if (cardEl instanceof HTMLElement && selectedCardId === card.id) {
+            positionCardDescription(cardEl);
+        }
     });
 
     playerDiscardEl.innerHTML = '';
