@@ -812,11 +812,56 @@ h3 {
   background: rgba(255, 255, 255, 0.035);
 }
 
+.room-player-row.bot-slot {
+  border-color: rgba(100, 160, 255, 0.35);
+  background: rgba(100, 160, 255, 0.06);
+}
+
 .room-player-name {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.room-player-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.kick-player-btn,
+.add-bot-btn,
+.remove-bot-btn {
+  padding: 0.2rem 0.55rem;
+  font-size: 0.78rem;
+  border: 1px solid rgba(255, 77, 77, 0.45);
+  border-radius: 5px;
+  background: rgba(255, 77, 77, 0.12);
+  color: #ff7f7f;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.add-bot-btn {
+  border-color: rgba(100, 160, 255, 0.45);
+  background: rgba(100, 160, 255, 0.12);
+  color: #7ab4ff;
+}
+
+.remove-bot-btn {
+  border-color: rgba(255, 176, 0, 0.45);
+  background: rgba(255, 176, 0, 0.12);
+  color: #ffd36a;
+}
+
+.kick-player-btn:hover,
+.add-bot-btn:hover,
+.remove-bot-btn:hover {
+  opacity: 0.85;
 }
 
 .empty-lobby-state {

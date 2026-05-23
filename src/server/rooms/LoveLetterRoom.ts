@@ -48,8 +48,9 @@ export class LoveLetterRoom extends Room<{ state: GameRoomState }> {
             }
 
             const players = Array.from(this.state.players.values()) as PlayerState[];
-            if (players.length < 2 || players.length > 4) {
-                throw new LobbyException("The game requires 2 to 4 players.");
+            const totalPlayers = players.length + this.state.botCount;
+            if (totalPlayers < 2 || totalPlayers > 4) {
+                throw new LobbyException("The game requires 2 to 4 players (including bots).");
             }
 
             const guestsReady = players
@@ -63,6 +64,63 @@ export class LoveLetterRoom extends Room<{ state: GameRoomState }> {
             this.state.isGameStarted = true;
             void this.setMetadata({ isGameStarted: true });
             this.lock();
+        });
+
+        this.onMessage("add_bot", client => {
+            const player = this.getPlayerOrThrow(client.sessionId);
+            if (!player.isHost) {
+                throw new LobbyException("Only the host can add bots.", 403);
+            }
+            if (this.state.isGameStarted) {
+                throw new LobbyException("Cannot add bots after the game has started.");
+            }
+            const totalSlots = this.state.players.size + this.state.botCount;
+            if (totalSlots >= this.maxClients) {
+                throw new LobbyException("Room is full.");
+            }
+            this.state.botCount++;
+            console.log(`[LoveLetterRoom] Bot added to room ${this.roomId}. Bot count: ${this.state.botCount}`);
+        });
+
+        this.onMessage("remove_bot", client => {
+            const player = this.getPlayerOrThrow(client.sessionId);
+            if (!player.isHost) {
+                throw new LobbyException("Only the host can remove bots.", 403);
+            }
+            if (this.state.isGameStarted) {
+                throw new LobbyException("Cannot remove bots after the game has started.");
+            }
+            if (this.state.botCount <= 0) {
+                throw new LobbyException("No bots to remove.");
+            }
+            this.state.botCount--;
+            console.log(`[LoveLetterRoom] Bot removed from room ${this.roomId}. Bot count: ${this.state.botCount}`);
+        });
+
+        this.onMessage("kick_player", (client, data: { targetSessionId: string }) => {
+            const player = this.getPlayerOrThrow(client.sessionId);
+            if (!player.isHost) {
+                throw new LobbyException("Only the host can kick players.", 403);
+            }
+            if (this.state.isGameStarted) {
+                throw new LobbyException("Cannot kick players after the game has started.");
+            }
+            if (!data?.targetSessionId || data.targetSessionId === client.sessionId) {
+                throw new LobbyException("Invalid kick target.");
+            }
+            const targetPlayer = this.state.players.get(data.targetSessionId);
+            if (!targetPlayer) {
+                throw new LobbyException("Target player not found.");
+            }
+
+            // Notify the kicked client before removing them.
+            const targetClient = this.clients.find(c => c.sessionId === data.targetSessionId);
+            if (targetClient) {
+                targetClient.send("kicked_from_room", {});
+            }
+
+            this.state.players.delete(data.targetSessionId);
+            console.log(`[LoveLetterRoom] ${targetPlayer.name} was kicked from room ${this.roomId} by the host.`);
         });
 
         this.onMessage("init_game_data", (client, data) => {
@@ -114,7 +172,7 @@ export class LoveLetterRoom extends Room<{ state: GameRoomState }> {
             throw new LobbyException("Player is already in this room.");
         }
 
-        if (this.state.players.size >= this.maxClients) {
+        if (this.state.players.size + this.state.botCount >= this.maxClients) {
             throw new LobbyException("Room is full.", 403);
         }
 

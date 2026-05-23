@@ -198,3 +198,90 @@ test('cancelling target selection does not leak the played card to the opponent'
         await hostContext.close();
     }
 });
+
+test('host can add/remove bots and start a 1-real-player + 1-bot game', async ({ browser }) => {
+    const hostContext = await browser.newContext();
+    const hostPage = await hostContext.newPage();
+
+    try {
+        await openOnlineLobby(hostPage);
+
+        // Create a room (Alice is host, 1 real player).
+        await hostPage.locator('#create-room-btn').click();
+        await hostPage.locator('#create-room-player-name').fill('Alice');
+        await hostPage.locator('#confirm-create-room-btn').click();
+        await expect(hostPage.locator('#room-wait-scene')).toBeVisible();
+
+        // Initially 1 player, start button disabled (need >= 2 total).
+        await expect(hostPage.locator('#room-player-count')).toHaveText('1/4');
+        await expect(hostPage.locator('#ready-toggle-btn')).toBeDisabled();
+
+        // Host adds a bot — player count becomes 2/4.
+        await hostPage.locator('.add-bot-btn').click();
+        await expect(hostPage.locator('#room-player-count')).toHaveText('2/4');
+        await expect(hostPage.locator('#room-player-list')).toContainText('電腦 A');
+        // Now host can start (1 real + 1 bot >= 2).
+        await expect(hostPage.locator('#ready-toggle-btn')).toBeEnabled();
+
+        // Host removes the bot — back to 1/4, start disabled again.
+        await hostPage.locator('.remove-bot-btn').click();
+        await expect(hostPage.locator('#room-player-count')).toHaveText('1/4');
+        await expect(hostPage.locator('#ready-toggle-btn')).toBeDisabled();
+
+        // Add the bot back and start the game.
+        await hostPage.locator('.add-bot-btn').click();
+        await expect(hostPage.locator('#ready-toggle-btn')).toBeEnabled();
+        await hostPage.locator('#ready-toggle-btn').click();
+
+        // Game should start — game-scene visible, bot opponent rendered.
+        await expect(hostPage.locator('#game-scene')).toBeVisible({ timeout: 5000 });
+        await expect(hostPage.locator('#player-area')).toContainText('Alice');
+        await expect(hostPage.locator('#opponents-container')).toContainText('電腦 A');
+
+        // Alice draws her card so the game advances normally.
+        await hostPage.evaluate(() => {
+            const overlay = document.getElementById('modal-overlay');
+            if (overlay) overlay.style.display = 'none';
+        });
+        await hostPage.locator('#draw-btn').click();
+        // Alice should now have 2 cards in hand.
+        await expect(hostPage.locator('#player-hand .card-wrapper')).toHaveCount(2);
+    } finally {
+        await hostContext.close();
+    }
+});
+
+test('host can kick a real player who then returns to the lobby', async ({ browser }) => {
+    const hostContext = await browser.newContext();
+    const guestContext = await browser.newContext();
+    const hostPage = await hostContext.newPage();
+    const guestPage = await guestContext.newPage();
+
+    try {
+        await openOnlineLobby(hostPage);
+        const roomId = await createRoom(hostPage, 'Alice');
+
+        await openOnlineLobby(guestPage);
+        await joinRoom(guestPage, roomId, 'Bob');
+
+        // Bob should be visible in both views.
+        await expect(hostPage.locator('#room-player-list')).toContainText('Bob');
+        await expect(guestPage.locator('#room-player-list')).toContainText('Bob');
+
+        // Alice (host) kicks Bob.
+        const kickBtn = hostPage.locator('.kick-player-btn');
+        await expect(kickBtn).toBeVisible();
+        await kickBtn.click();
+
+        // Bob sees a kicked notification modal, then the lobby.
+        await expect(guestPage.locator('#modal-overlay')).toBeVisible({ timeout: 5000 });
+        await guestPage.locator('#kicked-ok-btn').click();
+        await expect(guestPage.locator('#lobby-scene')).toBeVisible();
+
+        // Host room now shows 1 player again.
+        await expect(hostPage.locator('#room-player-count')).toHaveText('1/4');
+    } finally {
+        await guestContext.close();
+        await hostContext.close();
+    }
+});

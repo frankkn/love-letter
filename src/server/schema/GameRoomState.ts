@@ -13,4 +13,7 @@ export class GameRoomState extends Schema {
 
     @type({ map: PlayerState })
     players = new MapSchema<PlayerState>();
+
+    @type("number")
+    botCount = 0;
 }

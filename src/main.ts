@@ -178,6 +178,7 @@ interface RoomWaitViewState {
     players: RoomWaitPlayerView[];
     selfId: string;
     isGameStarted: boolean;
+    botCount: number;
 }
 
 interface SyncedRoomPlayerState {
@@ -194,6 +195,7 @@ interface SyncedRoomState {
     players: Map<string, SyncedRoomPlayerState> | Record<string, SyncedRoomPlayerState> | {
         values: () => IterableIterator<SyncedRoomPlayerState>;
     };
+    botCount?: number;
 }
 
 const colyseusEndpoint = import.meta.env.VITE_COLYSEUS_ENDPOINT ||
@@ -1052,6 +1054,12 @@ function handoffTurnIfCurrentPlayerWasEliminated(eliminatedPlayerId: number) {
 }
 
 function queueBotTurn(botId: number) {
+    // In online games only the host drives bot turns — non-host clients just receive synced state.
+    if (isOnlineGameActive()) {
+        const selfPlayer = currentRoomWaitState?.players.find(p => p.id === activeGameRoom?.sessionId);
+        if (!selfPlayer?.isHost) return;
+    }
+
     queuedBotTurnId = botId;
     window.setTimeout(() => {
         if (
@@ -2142,6 +2150,7 @@ function normalizeRoomWaitState(roomState: RoomWaitViewState | SyncedRoomState):
         const viewState = roomState as RoomWaitViewState;
         return {
             ...viewState,
+            botCount: viewState.botCount ?? 0,
             players: viewState.players
                 .map(player => toRoomWaitPlayerView(player))
                 .filter((player): player is RoomWaitPlayerView => player !== null)
@@ -2153,7 +2162,8 @@ function normalizeRoomWaitState(roomState: RoomWaitViewState | SyncedRoomState):
         roomId: syncedState.roomId || activeGameRoom?.roomId || '-',
         players: getSyncedPlayers(syncedState),
         selfId: activeGameRoom?.sessionId || '',
-        isGameStarted: syncedState.isGameStarted
+        isGameStarted: syncedState.isGameStarted,
+        botCount: syncedState.botCount ?? 0
     };
 }
 
@@ -2176,6 +2186,23 @@ function createInitialOnlineGameData(roomState: RoomWaitViewState): OnlineGameDa
     deck = shuffle(deck);
     const burnedCard = deck.pop() || null;
     const players = createOnlinePlayers(roomState.players);
+
+    // Append bot players after real players
+    const BOT_NAMES = ['電腦 A', '電腦 B', '電腦 C'];
+    const botCount = roomState.botCount ?? 0;
+    for (let i = 0; i < botCount; i++) {
+        players.push({
+            id: players.length,
+            name: BOT_NAMES[i] ?? `電腦 ${i + 1}`,
+            isBot: true,
+            coins: 0,
+            hand: [],
+            isProtected: false,
+            isAlive: true,
+            discardPile: [],
+            isHandRevealed: false
+        });
+    }
 
     players.forEach(player => {
         player.hand = [deck.pop()!];
@@ -2805,6 +2832,12 @@ function applyOnlineGameState(data: OnlineGameStateData) {
     void handlePendingForcedEffect();
     void handlePendingBaronDuel();
     void handlePendingKingExchange();
+
+    // If the current turn belongs to a bot, the host should drive it.
+    const currentPlayer = state?.players[state.currentTurnPlayerId];
+    if (!state?.isGameOver && currentPlayer?.isBot && currentPlayer.isAlive) {
+        queueBotTurn(state.currentTurnPlayerId);
+    }
 }
 
 function applyOnlineGameData(data: OnlineGameData) {
@@ -2887,45 +2920,102 @@ function renderRoomWaitArea(roomState: RoomWaitViewState | SyncedRoomState) {
         }
     }
 
+    const botCount = normalizedState.botCount ?? 0;
+    const totalOccupied = normalizedState.players.length + botCount;
     currentRoomIdEl.textContent = normalizedState.roomId;
-    roomPlayerCountEl.textContent = `${normalizedState.players.length}/4`;
+    roomPlayerCountEl.textContent = `${totalOccupied}/4`;
 
-    roomPlayerListEl.innerHTML = Array.from({ length: 4 }, (_, index) => {
-        const player = normalizedState.players[index];
-        if (!player) {
-            return `
-                <div class="room-player-row empty-slot">
-                    <span>${t('room.waitSlot')}</span>
-                    <span class="player-status">${t('room.emptySlot')}</span>
-                </div>
-            `;
-        }
+    const selfPlayer = normalizedState.players.find(player => player.id === normalizedState.selfId);
+    const isHost = selfPlayer?.isHost ?? false;
 
+    // Build real-player rows
+    const realPlayerRows = normalizedState.players.map(player => {
         const isConnected = player.isConnected ?? true;
         const statusText = !isConnected
             ? t('room.statusOffline')
             : player.isReady || player.isHost ? t('room.statusReady') : t('room.statusWaiting');
         const statusClass = !isConnected ? 'waiting offline' : (player.isReady || player.isHost ? 'ready' : 'waiting');
+        const isSelf = player.id === normalizedState.selfId;
+        const kickBtn = isHost && !isSelf && !normalizedState.isGameStarted
+            ? `<button class="kick-player-btn" data-session-id="${escapeHTML(player.id)}">${t('room.kickPlayer')}</button>`
+            : '';
         return `
-            <div class="room-player-row ${player.id === normalizedState.selfId ? 'self-player' : ''} ${!isConnected ? 'offline-player' : ''}">
+            <div class="room-player-row ${isSelf ? 'self-player' : ''} ${!isConnected ? 'offline-player' : ''}">
                 <div class="room-player-name">
                     <strong>${escapeHTML(player.name)}</strong>
                     ${player.isHost ? `<span class="host-badge">${t('room.hostBadge')}</span>` : ''}
                 </div>
-                <span class="player-status ${statusClass}">${statusText}</span>
+                <div class="room-player-actions">
+                    <span class="player-status ${statusClass}">${statusText}</span>
+                    ${kickBtn}
+                </div>
             </div>
         `;
-    }).join('');
+    });
 
-    const selfPlayer = normalizedState.players.find(player => player.id === normalizedState.selfId);
-    const isHost = selfPlayer?.isHost ?? false;
+    // Build bot rows
+    const BOT_NAMES_DISPLAY = ['電腦 A', '電腦 B', '電腦 C'];
+    const botRows = Array.from({ length: botCount }, (_, i) => {
+        const removeBtnHtml = isHost && !normalizedState.isGameStarted && i === botCount - 1
+            ? `<button class="remove-bot-btn">${t('room.removeBot')}</button>`
+            : '';
+        return `
+            <div class="room-player-row bot-slot">
+                <div class="room-player-name">
+                    <strong>${escapeHTML(BOT_NAMES_DISPLAY[i] ?? `電腦 ${i + 1}`)}</strong>
+                </div>
+                <div class="room-player-actions">
+                    <span class="player-status ready">${t('room.botStatus')}</span>
+                    ${removeBtnHtml}
+                </div>
+            </div>
+        `;
+    });
+
+    // Build empty slot rows with optional "add bot" button in the first empty slot
+    const emptySlotCount = 4 - totalOccupied;
+    const emptyRows = Array.from({ length: emptySlotCount }, (_, i) => {
+        const addBtnHtml = isHost && !normalizedState.isGameStarted && i === 0
+            ? `<button class="add-bot-btn">${t('room.addBot')}</button>`
+            : '';
+        return `
+            <div class="room-player-row empty-slot">
+                <span>${t('room.waitSlot')}</span>
+                <div class="room-player-actions">
+                    <span class="player-status">${t('room.emptySlot')}</span>
+                    ${addBtnHtml}
+                </div>
+            </div>
+        `;
+    });
+
+    roomPlayerListEl.innerHTML = [...realPlayerRows, ...botRows, ...emptyRows].join('');
+
+    // Wire up host-only buttons
+    roomPlayerListEl.querySelectorAll<HTMLButtonElement>('.kick-player-btn').forEach(btn => {
+        btn.onclick = () => {
+            const targetSessionId = btn.dataset.sessionId;
+            if (targetSessionId) {
+                activeGameRoom?.send('kick_player', { targetSessionId });
+            }
+        };
+    });
+
+    roomPlayerListEl.querySelector<HTMLButtonElement>('.add-bot-btn')?.addEventListener('click', () => {
+        activeGameRoom?.send('add_bot');
+    });
+
+    roomPlayerListEl.querySelector<HTMLButtonElement>('.remove-bot-btn')?.addEventListener('click', () => {
+        activeGameRoom?.send('remove_bot');
+    });
+
     const guestsReady = normalizedState.players
         .filter(player => !player.isHost && (player.isConnected ?? true))
         .every(player => player.isReady);
     readyToggleBtn.textContent = normalizedState.isGameStarted
         ? t('room.started')
         : isHost ? t('room.startGame') : (selfPlayer?.isReady ? t('room.cancelReady') : t('room.ready'));
-    readyToggleBtn.disabled = normalizedState.isGameStarted || (isHost && (normalizedState.players.length < 2 || !guestsReady));
+    readyToggleBtn.disabled = normalizedState.isGameStarted || (isHost && (totalOccupied < 2 || !guestsReady));
 }
 
 function openCreateRoomModal() {
@@ -3018,6 +3108,21 @@ function bindGameRoom(room: Room<unknown, SyncedRoomState>) {
 
     room.onMessage<OnlineGameStateData>('sync_game_state', data => {
         applyOnlineGameState(data);
+    });
+
+    room.onMessage('kicked_from_room', () => {
+        // Server notified us we were kicked — leave cleanly and return to lobby.
+        void leaveRoomIfConnected(activeGameRoom).then(() => {
+            activeGameRoom = null;
+            currentRoomWaitState = null;
+            showScene('lobby-scene');
+            showModal(
+                t('room.kicked'),
+                `<p>${t('room.kicked')}</p>`,
+                `<button class="modal-confirm-btn" id="kicked-ok-btn">${t('btn.confirm')}</button>`
+            );
+            document.getElementById('kicked-ok-btn')?.addEventListener('click', closeModal);
+        });
     });
 
     room.onLeave(() => {

@@ -50,6 +50,11 @@ const zh: TransMap = {
     'room.statusReady':    '✔️ 已準備',
     'room.statusWaiting':  '⏳ 準備中',
     'room.statusOffline':  '⚠️ 離線，等待重連',
+    'room.addBot':         '＋ 新增電腦',
+    'room.removeBot':      '－ 移除電腦',
+    'room.kickPlayer':     '踢出',
+    'room.botStatus':      '🤖 電腦 AI',
+    'room.kicked':         '你已被房主踢出房間。',
 
     // Create-room modal
     'cr.title':        '創建房間',
@@ -331,6 +336,11 @@ const en: TransMap = {
     'room.statusReady':    '✔️ Ready',
     'room.statusWaiting':  '⏳ Not Ready',
     'room.statusOffline':  '⚠️ Offline, reconnecting…',
+    'room.addBot':         '＋ Add Bot',
+    'room.removeBot':      '－ Remove Bot',
+    'room.kickPlayer':     'Kick',
+    'room.botStatus':      '🤖 Computer AI',
+    'room.kicked':         'You have been kicked from the room by the host.',
 
     // Create-room modal
     'cr.title':        'Create Room',
