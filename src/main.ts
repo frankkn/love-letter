@@ -296,6 +296,13 @@ function applyMuteState() {
 function unlockAudio() {
     if (audioUnlocked) return;
     audioUnlocked = true;
+    // Fade out the splash screen
+    const splash = document.getElementById('splash-screen');
+    if (splash) {
+        splash.classList.add('fade-out');
+        splash.addEventListener('animationend', () => splash.remove(), { once: true });
+    }
+    // Play the pending BGM immediately (we're now in a user-gesture context)
     if (pendingBGMFile) {
         const f = pendingBGMFile;
         pendingBGMFile = '';
