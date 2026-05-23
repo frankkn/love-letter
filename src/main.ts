@@ -908,6 +908,19 @@ async function handlePlayCardRequest(playerId: number, card: Card) {
     await executePlayCard(playerId, card);
 }
 
+function requiresTargetBeforeReveal(card: Card): boolean {
+    // Cards that pop a target-selection modal where the actor can still cancel.
+    // While the actor is choosing a target the play must stay local — syncing now
+    // would leak the card identity to opponents even if the actor backs out.
+    return (
+        card.type === CardType.Guard ||
+        card.type === CardType.Priest ||
+        card.type === CardType.Baron ||
+        card.type === CardType.Prince ||
+        card.type === CardType.King
+    );
+}
+
 async function executePlayCard(playerId: number, card: Card) {
     const player = state.players[playerId];
     const rollback = player.isBot ? undefined : createPlayRollback(playerId);
@@ -918,8 +931,15 @@ async function executePlayCard(playerId: number, card: Card) {
     player.isProtected = false;
 
     addLog(`${player.name} 打出了 ${card.name} (${card.value})`);
-    syncOnlineGameState();
-    
+
+    // For human plays of target-selecting cards, defer the broadcast until the actor
+    // actually picks a target. Otherwise opponents would briefly see the card in the
+    // discard pile and learn what was held even when the play is cancelled.
+    const deferSyncUntilTargetSelected = !player.isBot && requiresTargetBeforeReveal(card);
+    if (!deferSyncUntilTargetSelected) {
+        syncOnlineGameState();
+    }
+
     await applyEffect(playerId, card, true, rollback);
     if (modalOverlay.style.display !== 'flex') {
         syncOnlineGameState();
@@ -1105,6 +1125,12 @@ async function applyEffect(playerId: number, card: Card, shouldEndTurn = true, r
                     (btn as HTMLElement).onclick = async () => {
                         const targetId = parseInt((btn as HTMLElement).dataset.id!);
                         closeModal();
+                        // Target chosen — broadcast the play now that the actor has committed.
+                        // executePlayCard intentionally skipped the initial sync for these cards
+                        // so a cancel here would not have leaked the card identity.
+                        if (requiresTargetBeforeReveal(card)) {
+                            syncOnlineGameState();
+                        }
                         await resolveTargetEffect(playerId, targetId, card, shouldEndTurn, rollback);
                         resolve();
                     };

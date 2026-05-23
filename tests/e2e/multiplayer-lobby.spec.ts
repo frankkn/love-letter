@@ -125,3 +125,76 @@ test('when a player leaves mid-game, the other player sees the abort modal and c
         await hostContext.close();
     }
 });
+
+test('cancelling target selection does not leak the played card to the opponent', async ({ browser }) => {
+    const hostContext = await browser.newContext();
+    const guestContext = await browser.newContext();
+    const hostPage = await hostContext.newPage();
+    const guestPage = await guestContext.newPage();
+
+    try {
+        await openOnlineLobby(hostPage);
+        const roomId = await createRoom(hostPage, 'Alice');
+        await openOnlineLobby(guestPage);
+        await joinRoom(guestPage, roomId, 'Bob');
+        await guestPage.locator('#ready-toggle-btn').click();
+        await expect(hostPage.locator('#ready-toggle-btn')).toBeEnabled();
+        await hostPage.locator('#ready-toggle-btn').click();
+        await expect(hostPage.locator('#game-scene')).toBeVisible();
+        await expect(guestPage.locator('#game-scene')).toBeVisible();
+
+        // Dismiss the auto-shown "遊戲開始" modals on both clients.
+        for (const page of [hostPage, guestPage]) {
+            await page.evaluate(() => {
+                const overlay = document.getElementById('modal-overlay');
+                if (overlay) overlay.style.display = 'none';
+            });
+        }
+
+        // Alice (host) draws her second card so she has 2 in hand.
+        await hostPage.locator('#draw-btn').click();
+        await expect(hostPage.locator('#player-hand .card-wrapper')).toHaveCount(2);
+
+        const cardNames = await hostPage.locator('#player-hand .card-wrapper .card-name').allTextContents();
+        const targetCardNames = ['衛兵', '神父', '男爵', '王子', '國王'];
+        const targetCardIndex = cardNames.findIndex(name => targetCardNames.includes(name));
+
+        // ~95% of the deck-shuffles deal Alice at least one target-selecting card. If this run
+        // happens to deal her only Handmaid/Countess/Princess, we can't exercise the cancel flow.
+        if (targetCardIndex === -1) {
+            console.log(`[test] Alice's hand: ${cardNames.join(', ')} — no target-selecting card to exercise this flow; skipping verification.`);
+            return;
+        }
+
+        // Bob's view of Alice before the play: 2 hidden cards in hand, empty discard pile.
+        const aliceDiscardOnGuest = guestPage.locator('.opponent-area', { hasText: 'Alice' }).locator('.discard-container');
+        const aliceHandOnGuest = guestPage.locator('.opponent-area', { hasText: 'Alice' }).locator('.hand-container');
+        await expect(aliceDiscardOnGuest.locator('.card')).toHaveCount(0);
+        await expect(aliceHandOnGuest.locator('.card')).toHaveCount(2);
+
+        const aliceHandCards = hostPage.locator('#player-hand .card-wrapper');
+        // First click selects the card, second click attempts to play it.
+        await aliceHandCards.nth(targetCardIndex).click();
+        await aliceHandCards.nth(targetCardIndex).click();
+
+        // The target-selection modal should appear on Alice's screen.
+        await expect(hostPage.locator('#modal-title')).toContainText('請選擇');
+
+        // CRITICAL: while Alice is choosing a target, Bob must not see the card in her discard pile.
+        // Wait a moment to let any out-of-order sync settle, then verify nothing leaked.
+        await guestPage.waitForTimeout(500);
+        await expect(aliceDiscardOnGuest.locator('.card')).toHaveCount(0);
+        await expect(aliceHandOnGuest.locator('.card')).toHaveCount(2);
+
+        // Alice changes her mind and clicks 返回.
+        await hostPage.locator('#modal-cancel-btn').click();
+
+        // After cancel, Bob's view must remain unchanged — no ghost play.
+        await guestPage.waitForTimeout(800);
+        await expect(aliceDiscardOnGuest.locator('.card')).toHaveCount(0);
+        await expect(aliceHandOnGuest.locator('.card')).toHaveCount(2);
+    } finally {
+        await guestContext.close();
+        await hostContext.close();
+    }
+});
