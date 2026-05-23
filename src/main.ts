@@ -262,6 +262,83 @@ function resetLocalClientState() {
     closeModal();
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Audio System
+// ─────────────────────────────────────────────────────────────────────────────
+const bgmAudio = new Audio();
+bgmAudio.loop = true;
+bgmAudio.volume = 0.45;
+
+const sfxAudio = new Audio();
+sfxAudio.volume = 0.8;
+
+let isMuted = localStorage.getItem('loveLetter_muted') === 'true';
+let currentBGMFile = '';
+let audioUnlocked = false;
+let pendingBGMFile = '';
+
+function getAudioSrc(filename: string): string {
+    return `${import.meta.env.BASE_URL}audio/${encodeURIComponent(filename)}`;
+}
+
+function applyMuteState() {
+    bgmAudio.muted = isMuted;
+    sfxAudio.muted = isMuted;
+    const btn = document.getElementById('mute-btn') as HTMLButtonElement | null;
+    if (btn) btn.textContent = isMuted ? '🔇' : '🔊';
+}
+
+function unlockAudio() {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+    if (pendingBGMFile) {
+        const f = pendingBGMFile;
+        pendingBGMFile = '';
+        playBGM(f);
+    }
+}
+
+function playBGM(filename: string) {
+    if (!audioUnlocked) { pendingBGMFile = filename; return; }
+    if (currentBGMFile === filename && !bgmAudio.paused) return;
+    bgmAudio.loop = true;
+    currentBGMFile = filename;
+    bgmAudio.src = getAudioSrc(filename);
+    bgmAudio.currentTime = 0;
+    bgmAudio.play().catch(() => {
+        audioUnlocked = false;
+        pendingBGMFile = filename;
+        currentBGMFile = '';
+    });
+}
+
+function playSFX(filename: string) {
+    if (!audioUnlocked) return;
+    sfxAudio.src = getAudioSrc(filename);
+    sfxAudio.currentTime = 0;
+    sfxAudio.play().catch(() => {});
+}
+
+function playChampionTheme() {
+    bgmAudio.pause();
+    currentBGMFile = '';
+    playSFX('Love Conquers All.mp3');
+}
+
+function toggleMute() {
+    isMuted = !isMuted;
+    localStorage.setItem('loveLetter_muted', String(isMuted));
+    applyMuteState();
+    // If unmuting while a BGM was pending, start it now
+    if (!isMuted) unlockAudio();
+}
+
+document.addEventListener('click', unlockAudio);
+document.addEventListener('keydown', unlockAudio);
+applyMuteState();
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function resetClientState() {
     const leavingGameRoom = activeGameRoom;
     const leavingLobbyRoom = lobbyRoom;
@@ -1702,6 +1779,7 @@ function eliminate(playerId: number, reason: string) {
     if (survivors.length === 1) {
         endGame(survivors[0], t('reason.lastSurvivor'));
     } else {
+        playSFX('Farewell, Chevalier.mp3');
         handoffTurnIfCurrentPlayerWasEliminated(playerId);
     }
 
@@ -1776,6 +1854,8 @@ function showChampionModal() {
     const champion = getLeagueChampion();
     if (!champion) return;
 
+    playChampionTheme();
+
     showModal(t('modal.champion'), `
         <div style="text-align: center; line-height: 1.6; padding: 0.35rem 0;">
             <div style="font-size: 3rem; margin-bottom: 0.3rem;">♛</div>
@@ -1817,6 +1897,7 @@ function showEndGameModal() {
     if (!state.winner) return;
 
     hasShownEndGameModal = true;
+    playSFX("The Victor's Token.mp3");
     showResultBtn.style.display = 'block';
 
     const champion = getLeagueChampion();
@@ -3311,6 +3392,13 @@ function showScene(sceneId: 'main-menu' | 'mode-select' | 'bot-count-select' | '
         setMobileStatsOpen(false);
     }
     document.getElementById(sceneId)!.style.display = 'flex';
+
+    // BGM switching
+    if (sceneId === 'game-scene') {
+        playBGM('A Game of Hearts.mp3');
+    } else {
+        playBGM('Royal Intrigue.mp3');
+    }
 }
 
 document.getElementById('start-game-btn')!.onclick = () => showScene('mode-select');
@@ -3342,6 +3430,7 @@ document.getElementById('back-home-btn')!.onclick = async () => {
 };
 showResultBtn.onclick = showEndGameModal;
 showLogBtn.onclick = showBattleLogModal;
+document.getElementById('mute-btn')!.onclick = toggleMute;
 document.addEventListener('click', event => {
     const target = event.target as HTMLElement;
     if (gameSceneEl.classList.contains('mobile-stats-open') && !target.closest('.card-stats-area, .mobile-stats-toggle')) {

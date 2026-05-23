@@ -5,7 +5,13 @@
       "Bash(python3 -c ' *)",
       "Bash(npm run *)",
       "Bash(npx playwright *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(cd \"C:\\Users\\User\\Desktop\\love-letter\"; npm run build *)",
+      "PowerShell(cd \"C:\\Users\\User\\Desktop\\love-letter\"; npm run test:e2e *)",
+      "PowerShell(cd \"C:\\Users\\User\\Desktop\\love-letter\"; git add *)",
+      "PowerShell(cd \"C:\\Users\\User\\Desktop\\love-letter\"; git push *)",
+      "PowerShell(cd \"C:\\Users\\User\\Desktop\\love-letter\"; git tag *)"
     ]
   }
 }

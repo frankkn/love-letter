@@ -516,6 +516,39 @@ h3 {
   text-align: left;
 }
 
+/* Mute button */
+#mute-btn {
+  position: fixed;
+  top: max(0.75rem, env(safe-area-inset-top));
+  right: max(0.75rem, env(safe-area-inset-right));
+  z-index: 1500;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 50%;
+  background: rgba(18, 18, 18, 0.82);
+  color: #f4f4f4;
+  font-size: 1.05rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  padding: 0;
+  line-height: 1;
+  transition: background 0.15s, transform 0.1s;
+}
+
+#mute-btn:hover {
+  background: rgba(50, 50, 50, 0.95);
+  transform: scale(1.08);
+}
+
+#mute-btn:active {
+  transform: scale(0.94);
+}
+
 /* Modal 樣式 */
 .modal-overlay {
   position: fixed;
