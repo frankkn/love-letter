@@ -62,6 +62,9 @@ export interface GameState {
     logs: string[];
     aiMemory: Record<number, Record<number, CardType>>;
     aiExcludedGuesses: Record<number, Record<number, CardType[]>>;
+    // Monotonically increasing per round. Used to discard stale online syncs that arrive
+    // after a newer round has already started locally (3+ player "next round" race).
+    roundIndex: number;
 }
 
 interface PlayRollback {
@@ -1937,6 +1940,7 @@ interface OnlineGameData {
     players: Player[];
     currentTurnPlayerId: number;
     logs: string[];
+    roundIndex: number;
 }
 
 interface PendingForcedEffect {
@@ -2103,7 +2107,8 @@ function createInitialOnlineGameData(roomState: RoomWaitViewState): OnlineGameDa
         burnedCard,
         players,
         currentTurnPlayerId: 0,
-        logs: ['多人遊戲開始，房主已同步初始牌局。']
+        logs: ['多人遊戲開始，房主已同步初始牌局。'],
+        roundIndex: 0
     };
 }
 
@@ -2164,6 +2169,7 @@ function createOnlineGameStateData(): OnlineGameStateData {
         isGameOver: state.isGameOver,
         winner: state.winner ? cloneOnlinePlayer(state.winner) : null,
         logs: [...state.logs],
+        roundIndex: state.roundIndex,
         pendingForcedEffectsQueue: pendingForcedEffectsQueue.map(effect => ({
             ...effect,
             card: cloneCardForOnlineSync(effect.card)
@@ -2516,6 +2522,13 @@ async function handlePendingForcedEffect() {
 }
 
 function applyOnlineGameState(data: OnlineGameStateData) {
+    // Drop syncs from prior rounds. With 3+ players, the "next round" sync race can produce
+    // late game-over syncs that arrive after a newer round has already begun locally; without
+    // this guard those stale syncs would rewind a player's UI to the previous round's result.
+    if (state && typeof data.roundIndex === 'number' && data.roundIndex < state.roundIndex) {
+        return;
+    }
+
     const selfSessionId = activeGameRoom?.sessionId;
     const roomPlayers = currentRoomWaitState?.players ?? [];
     const selfIndex = roomPlayers.findIndex(player => player.id === selfSessionId);
@@ -2566,7 +2579,8 @@ function applyOnlineGameState(data: OnlineGameStateData) {
                 winner: data.winner ? players.find(player => player.id === data.winner?.id) ?? cloneOnlinePlayer(data.winner) : null,
                 logs: [...data.logs],
                 aiMemory: {},
-                aiExcludedGuesses: {}
+                aiExcludedGuesses: {},
+                roundIndex: data.roundIndex ?? 0
             };
 
             onlineGameInitialized = true;
@@ -2677,7 +2691,8 @@ function applyOnlineGameState(data: OnlineGameStateData) {
             winner: data.winner ? players.find(player => player.id === data.winner?.id) ?? cloneOnlinePlayer(data.winner) : null,
             logs: [...data.logs],
             aiMemory: {},
-            aiExcludedGuesses: {}
+            aiExcludedGuesses: {},
+            roundIndex: data.roundIndex ?? 0
         };
         pendingForcedEffectsQueue = incomingPendingForcedEffectsQueue;
         pendingBaronDuel = incomingPendingBaronDuel;
@@ -3215,7 +3230,8 @@ function initGame(botCount: number) {
         winner: null,
         logs: ["遊戲開始，玩家先攻！"],
         aiMemory: createAIMemory(players),
-        aiExcludedGuesses: createAIExcludedGuesses(players)
+        aiExcludedGuesses: createAIExcludedGuesses(players),
+        roundIndex: 0
     };
 
     showScene('game-scene');
@@ -3332,6 +3348,7 @@ function startNextRound() {
     state.logs = [`新一局開始，${state.players[firstPlayerId].name} 作為上一局勝出者先攻！`];
     state.aiMemory = createAIMemory(state.players);
     state.aiExcludedGuesses = createAIExcludedGuesses(state.players);
+    state.roundIndex += 1;
 
     showScene('game-scene');
     render();
