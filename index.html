@@ -123,7 +123,10 @@
               <button id="draw-btn" data-i18n="game.draw">抽牌</button>
               <button id="show-result-btn" class="result-btn" style="display: none;" data-i18n="game.viewResult">查看結果</button>
               <button id="show-log-btn" class="menu-btn secondary" data-i18n="game.viewLog">查看對戰紀錄</button>
-              <button id="back-home-btn" class="menu-btn secondary" style="padding: 5px 15px; width: 100%;" data-i18n="game.backHome">回主選單</button>
+              <div class="back-home-row">
+                <button id="back-home-btn" class="menu-btn secondary" data-i18n="game.backHome">回主選單</button>
+                <button id="mute-btn" aria-label="Toggle mute">🔊</button>
+              </div>
             </div>
             <div id="game-log" class="log-container">
               <p>[系統] 遊戲準備就緒</p>
@@ -145,8 +148,6 @@
         </div>
       </div>
     </div>
-
-    <button id="mute-btn" aria-label="Toggle mute">🔊</button>
 
     <div id="pwa-install-prompt" style="position: fixed; left: 1rem; right: 1rem; bottom: calc(1rem + env(safe-area-inset-bottom)); z-index: 2000; display: none; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.85rem 1rem; border: 1px solid rgba(255,77,77,0.55); border-radius: 10px; background: rgba(18,18,18,0.96); box-shadow: 0 10px 28px rgba(0,0,0,0.45); color: #f4f4f4;">
       <span style="font-weight: 700; line-height: 1.35;">將《情書》安裝到主畫面</span>
