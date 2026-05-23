@@ -276,6 +276,8 @@ let isMuted = localStorage.getItem('loveLetter_muted') === 'true';
 let currentBGMFile = '';
 let audioUnlocked = false;
 let pendingBGMFile = '';
+// Tracks whether WE paused BGM to make way for an SFX (so we can resume it after)
+let bgmPausedForSFX = false;
 
 function getAudioSrc(filename: string): string {
     return `${import.meta.env.BASE_URL}audio/${encodeURIComponent(filename)}`;
@@ -303,6 +305,7 @@ function playBGM(filename: string) {
     if (currentBGMFile === filename && !bgmAudio.paused) return;
     bgmAudio.loop = true;
     currentBGMFile = filename;
+    bgmPausedForSFX = false;
     bgmAudio.src = getAudioSrc(filename);
     bgmAudio.currentTime = 0;
     bgmAudio.play().catch(() => {
@@ -314,22 +317,38 @@ function playBGM(filename: string) {
 
 function playSFX(filename: string) {
     if (!audioUnlocked) return;
+    // Pause BGM so it doesn't overlap with the SFX
+    if (!bgmAudio.paused) {
+        bgmAudio.pause();
+        bgmPausedForSFX = true;
+    }
+    const resumeBGM = () => {
+        if (bgmPausedForSFX && currentBGMFile) {
+            bgmPausedForSFX = false;
+            bgmAudio.play().catch(() => {});
+        }
+    };
     sfxAudio.src = getAudioSrc(filename);
     sfxAudio.currentTime = 0;
-    sfxAudio.play().catch(() => {});
+    sfxAudio.onended = resumeBGM;
+    sfxAudio.play().catch(resumeBGM);
 }
 
 function playChampionTheme() {
+    // Champion theme replaces BGM entirely — don't resume BGM afterwards
+    bgmPausedForSFX = false;
     bgmAudio.pause();
     currentBGMFile = '';
-    playSFX('Love Conquers All.mp3');
+    sfxAudio.src = getAudioSrc('Love Conquers All.mp3');
+    sfxAudio.currentTime = 0;
+    sfxAudio.onended = null;
+    sfxAudio.play().catch(() => {});
 }
 
 function toggleMute() {
     isMuted = !isMuted;
     localStorage.setItem('loveLetter_muted', String(isMuted));
     applyMuteState();
-    // If unmuting while a BGM was pending, start it now
     if (!isMuted) unlockAudio();
 }
 
