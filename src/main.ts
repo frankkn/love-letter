@@ -214,7 +214,12 @@ async function leaveRoomIfConnected(room: Room | null) {
     if (!room) return;
 
     room.removeAllListeners();
-    await room.leave();
+    // Guard against room.leave() never resolving — has been observed in the wild when the
+    // server disposes the room concurrently (e.g. last remaining player leaves mid-game).
+    await Promise.race([
+        room.leave(),
+        new Promise<void>(resolve => window.setTimeout(resolve, 1500))
+    ]);
 }
 
 async function resetClientState() {
@@ -2545,7 +2550,10 @@ function applyOnlineGameState(data: OnlineGameStateData) {
             pendingKingExchange = null;
             activeKingExchangeModalKey = null;
             isHandlingPendingForcedEffect = false;
-            nextRoundReadyPlayerIds = [...(data.nextRoundReadyPlayerIds ?? [])];
+            nextRoundReadyPlayerIds = Array.from(new Set([
+                ...nextRoundReadyPlayerIds,
+                ...(data.nextRoundReadyPlayerIds ?? [])
+            ]));
 
             const players = restoreLocalPrivateHints(data.players.map(cloneOnlinePlayer));
 
@@ -2758,8 +2766,12 @@ function renderLobbyList(rooms: LobbyRoomSummary[]) {
 function renderRoomWaitArea(roomState: RoomWaitViewState | SyncedRoomState) {
     const normalizedState = normalizeRoomWaitState(roomState);
     const wasGameStarted = currentRoomWaitState?.isGameStarted ?? false;
+    const previousRoomWaitState = currentRoomWaitState;
     currentRoomWaitState = normalizedState;
     roomWaitSceneEl.dataset.gameStarted = normalizedState.isGameStarted ? 'true' : 'false';
+
+    // Detect mid-game disconnections so the remaining player is not stranded waiting forever.
+    maybeShowAbortModalForDisconnections(previousRoomWaitState, normalizedState);
 
     if (normalizedState.isGameStarted) {
         console.log("\u623f\u9593\u72c0\u614b\u8b8a\u66f4\uff1a\u904a\u6232\u958b\u59cb\uff0c\u6e96\u5099\u52a0\u8f09\u904a\u6232\u6230\u5834");
@@ -2907,6 +2919,9 @@ function bindGameRoom(room: Room<unknown, SyncedRoomState>) {
         if (activeGameRoom === room) {
             activeGameRoom = null;
             currentRoomWaitState = null;
+            if (modalOverlay.style.display === 'flex' && modalTitle.textContent === '遊戲中斷') {
+                return;
+            }
             showScene('lobby-scene');
         }
     });
@@ -2948,6 +2963,41 @@ async function connectLobbyRoom() {
             </div>
         `;
     }
+}
+
+function maybeShowAbortModalForDisconnections(
+    previous: RoomWaitViewState | null,
+    current: RoomWaitViewState
+) {
+    if (!previous || !previous.isGameStarted || !current.isGameStarted) return;
+    if (!isOnlineGameActive()) return;
+    if (modalOverlay.style.display === 'flex' && modalTitle.textContent === '遊戲中斷') return;
+
+    const justDisconnected = current.players.filter(currentPlayer => {
+        if (currentPlayer.isConnected !== false) return false;
+        const previousPlayer = previous.players.find(p => p.id === currentPlayer.id);
+        return Boolean(previousPlayer && previousPlayer.isConnected !== false);
+    });
+    if (justDisconnected.length === 0) return;
+
+    const connectedCount = current.players.filter(p => p.isConnected !== false).length;
+    if (connectedCount >= 2) return;
+
+    const leaverName = justDisconnected.map(p => p.name).join('、');
+    showGameAbortedModal(`${leaverName} 已離開房間，剩餘玩家不足，本局已結束。`);
+}
+
+function showGameAbortedModal(reason: string) {
+    showModal('遊戲中斷', `
+        <p>${escapeHTML(reason)}</p>
+        <p>請點擊下方按鈕返回主選單。</p>
+    `, '<button class="modal-confirm-btn" id="game-aborted-ok-btn">返回主選單</button>');
+
+    document.getElementById('game-aborted-ok-btn')!.onclick = async () => {
+        closeModal();
+        await resetClientState();
+        showScene('main-menu');
+    };
 }
 
 async function leaveCurrentRoom() {
