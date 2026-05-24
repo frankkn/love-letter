@@ -50,7 +50,8 @@ export interface Player {
     isProtected: boolean; // 侍女保護狀態
     isAlive: boolean;     // 是否還活著
     discardPile: Card[];  // 已打出的牌堆
-    isHandRevealed?: boolean; // 是否需在畫面上暫時強制翻開手牌
+    isHandRevealed?: boolean;      // 是否需在畫面上暫時強制翻開手牌
+    handKnownToOpponent?: boolean; // 神父/國王後，目前手牌已被對手得知
 }
 
 export interface GameState {
@@ -933,6 +934,9 @@ function clearKnownCardForPlayer(playerId: number) {
     Object.values(state.aiMemory).forEach(memory => {
         delete memory[playerId];
     });
+    if (state.players[playerId]) {
+        state.players[playerId].handKnownToOpponent = false;
+    }
     clearBaronGuardClueForPlayer(playerId);
     clearExcludedGuardGuessesForPlayer(playerId);
 }
@@ -1265,8 +1269,31 @@ async function applyEffect(playerId: number, card: Card, shouldEndTurn = true, r
         if (player.isBot) {
             let botTargets = allPotentialTargets;
             if (card.type === CardType.Prince) {
-                const opponentTargets = allPotentialTargets.filter(target => target.id !== playerId);
-                botTargets = opponentTargets.length > 0 ? opponentTargets : allPotentialTargets.filter(target => target.id === playerId);
+                const opponentTargets = allPotentialTargets.filter(t => t.id !== playerId);
+                const selfTargets    = allPotentialTargets.filter(t => t.id === playerId);
+
+                if (opponentTargets.length === 0) {
+                    // Forced: all opponents under Handmaid — must target self
+                    botTargets = selfTargets.length > 0 ? selfTargets : allPotentialTargets;
+                } else if (selfTargets.length > 0) {
+                    // Prince already removed from hand by executePlayCard; hand[0] is the remaining card
+                    const remaining = player.hand[0];
+                    const remainingIsSafe = remaining && remaining.type !== CardType.Princess;
+
+                    // Scenario 3: end-game gamble — remaining card is weak (Guard/Priest)
+                    //   and deck is nearly exhausted → self-target to swap for a better card
+                    const shouldGamble = remainingIsSafe &&
+                        remaining!.value <= CardType.Priest &&
+                        state.deck.length <= 4;
+
+                    // Scenario 4: wash exposed hand — remaining card is known to an opponent
+                    //   (set by Priest or King) → self-target to clear the information leak
+                    const shouldWash = remainingIsSafe && player.handKnownToOpponent === true;
+
+                    botTargets = (shouldGamble || shouldWash) ? selfTargets : opponentTargets;
+                } else {
+                    botTargets = opponentTargets;
+                }
             } else if (card.type === CardType.Baron) {
                 const safeTargets = getSafeBaronTargets(player, card, botTargets);
                 if (safeTargets.length > 0) {
@@ -1414,6 +1441,10 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
         case CardType.Priest:
             if (actor.isBot && target.hand[0]) {
                 rememberKnownCard(actorId, targetId, target.hand[0].type);
+            }
+            // Mark target's hand as known — enables scenario-4 self-Prince wash
+            if (target.hand[0]) {
+                target.handKnownToOpponent = true;
             }
             const playedPriest = actor.discardPile.find(discarded => discarded.id === card.id) ?? card;
             const priestPublicHint = t('hint.usedOn', target.name);
@@ -1666,6 +1697,10 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
             if (targetTransferredCard) {
                 rememberKnownCard(targetId, actorId, targetTransferredCard.type);
             }
+            // After King swap each player holds the other's old card, which that
+            // opponent knows — mark both hands as exposed for self-Prince logic
+            actor.handKnownToOpponent = true;
+            target.handKnownToOpponent = true;
             if (!actor.isBot || !target.isBot) {
                 await waitForStatsModalConfirm(
                     t('modal.kingSwap'),
@@ -2290,7 +2325,8 @@ function createOnlinePlayers(roomPlayers: RoomWaitPlayerView[]): Player[] {
         isProtected: false,
         isAlive: true,
         discardPile: [],
-        isHandRevealed: false
+        isHandRevealed: false,
+        handKnownToOpponent: false
     }));
 }
 
@@ -2313,7 +2349,8 @@ function createInitialOnlineGameData(roomState: RoomWaitViewState): OnlineGameDa
             isProtected: false,
             isAlive: true,
             discardPile: [],
-            isHandRevealed: false
+            isHandRevealed: false,
+            handKnownToOpponent: false
         });
     }
 
@@ -3511,7 +3548,7 @@ function initGame(botCount: number) {
     const burnedCard = deck.pop() || null;
 
     const players: Player[] = [
-        { id: 0, name: t('player.human'), isBot: false, coins: 0, hand: [deck.pop()!], isProtected: false, isAlive: true, discardPile: [], isHandRevealed: false }
+        { id: 0, name: t('player.human'), isBot: false, coins: 0, hand: [deck.pop()!], isProtected: false, isAlive: true, discardPile: [], isHandRevealed: false, handKnownToOpponent: false }
     ];
 
     const botNames = [t('player.botA'), t('player.botB'), t('player.botC')];
@@ -3525,7 +3562,8 @@ function initGame(botCount: number) {
             isProtected: false,
             isAlive: true,
             discardPile: [],
-            isHandRevealed: false
+            isHandRevealed: false,
+            handKnownToOpponent: false
         });
     }
 
