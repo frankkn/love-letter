@@ -1208,7 +1208,7 @@ async function endTurn(playerId: number) {
         return;
     }
     
-    checkEndConditions();
+    await checkEndConditions();
 
     if (!state.isGameOver) {
         const survivors = getAlivePlayers();
@@ -1418,6 +1418,15 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
                         ];
                     }
                     addLog(t('log.guardHit'));
+                    // Inform the local player they were caught before the game jumps to results.
+                    if (targetId === localPlayerId && target.hand.length > 0) {
+                        render();
+                        await waitForStatsModalConfirm(
+                            t('modal.guardEliminated'),
+                            `<p>${t('guard.eliminated', actor.name, getCardName(target.hand[0].type))}</p>`,
+                            t('btn.ok')
+                        );
+                    }
                     eliminate(targetId, t('reason.guardHit'));
                     if (shouldEndTurn && !state.isGameOver) await endTurn(actorId);
                 } else {
@@ -1614,11 +1623,12 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
             addLog(t('log.princeForced', actor.name, target.name));
             await sleep(500);
             if (!target.isBot) {
-                await waitForStatsModalConfirm(
-                    t('card.prince'),
-                    `<p>${t('prince.modal', actor.name, target.name)}</p>`,
-                    t('btn.confirm')
-                );
+                const hasPrincess = targetId === localPlayerId && target.hand[0]?.type === CardType.Princess;
+                const princeBody = `<p>${t('prince.modal', actor.name, target.name)}</p>` +
+                    (hasPrincess
+                        ? `<p style="color:#ff4d4d;font-weight:bold;margin-top:0.5rem;">⚠️ ${t('prince.princess.warning')}</p>`
+                        : '');
+                await waitForStatsModalConfirm(t('card.prince'), princeBody, t('btn.confirm'));
             }
             const princeDiscardResult = await discardAndDraw(targetId, actorId, shouldEndTurn);
             if (princeDiscardResult.discarded) {
@@ -1854,9 +1864,9 @@ function eliminate(playerId: number, reason: string) {
     syncOnlineGameStateThenRender();
 }
 
-function checkEndConditions() {
+async function checkEndConditions() {
     if (state.isGameOver) return;
-    
+
     if (state.deck.length === 0) {
         const survivors = state.players.filter(p => p.isAlive);
         if (survivors.every(p => p.hand.length === 1)) {
@@ -1869,7 +1879,15 @@ function checkEndConditions() {
                 const bSum = b.discardPile.reduce((s, c) => s + c.value, 0);
                 return bSum - aSum;
             });
-            endGame(survivors[0], t('reason.highestCard', String(survivors[0].hand[0].value)));
+            const winner = survivors[0];
+            // Show all survivors' hands before jumping to the result modal.
+            render();
+            await waitForStatsModalConfirm(
+                t('modal.deckShowdown'),
+                createDeckShowdownBodyHTML(survivors, winner),
+                t('game.viewResult')
+            );
+            endGame(winner, t('reason.highestCard', String(winner.hand[0].value)));
         }
     }
 }
@@ -2122,7 +2140,7 @@ async function botTurn(botId: number) {
     
     // 階段 2：抽牌
     if (!drawCard(botId)) {
-        checkEndConditions();
+        await checkEndConditions();
         if (!state.isGameOver) {
             await endTurn(botId);
         }
@@ -2565,6 +2583,29 @@ function createHandRevealBodyHTML(message: string, actorName: string, actorCard:
             </div>
         </div>
     `;
+}
+
+function createDeckShowdownBodyHTML(sorted: Player[], winner: Player): string {
+    const columns = sorted.map(p => {
+        const isWinner = p.id === winner.id;
+        const cardEl = p.hand[0] ? createCardUI(p.hand[0], false).outerHTML : '';
+        return `
+            <div style="display:flex;flex-direction:column;align-items:center;gap:0.35rem;
+                        padding:0.5rem 0.65rem;border-radius:8px;
+                        border:2px solid ${isWinner ? '#ffb000' : 'rgba(255,255,255,0.15)'};
+                        background:${isWinner ? 'rgba(255,176,0,0.1)' : 'rgba(255,255,255,0.04)'};">
+                <strong style="color:${isWinner ? '#ffb000' : '#f2f2f2'};font-size:0.95rem;">
+                    ${escapeHTML(p.name)}
+                </strong>
+                ${cardEl}
+                ${isWinner ? `<span style="color:#ffb000;font-weight:bold;font-size:0.85rem;">${t('deckShowdown.winner')}</span>` : ''}
+            </div>`;
+    }).join('');
+    return `
+        <p style="margin:0 0 0.75rem;">${t('deckShowdown.intro')}</p>
+        <div class="duel-card-row" style="flex-wrap:wrap;">
+            ${columns}
+        </div>`;
 }
 
 function createBaronDuelBodyHTML(duel: PendingBaronDuel) {

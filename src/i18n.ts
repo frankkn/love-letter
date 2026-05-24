@@ -290,6 +290,18 @@ const zh: TransMap = {
 
     // Player name fallback
     'player.fallback': (n: string) => `玩家 ${n}`,
+
+    // Guard elimination modal (shown to the player who was caught by a Guard)
+    'modal.guardEliminated':   '你被衛兵猜中了！',
+    'guard.eliminated':        (actor: string, card: string) => `${actor} 猜中了你的手牌【${card}】，你就此出局。`,
+
+    // Prince + Princess warning (added to the forced-discard confirmation)
+    'prince.princess.warning': '你的手牌是公主！棄牌後你將立刻出局。',
+
+    // Deck-empty final showdown modal
+    'modal.deckShowdown':      '牌堆已空！最終攤牌',
+    'deckShowdown.intro':      '存活玩家展示手牌，點數最大者獲勝：',
+    'deckShowdown.winner':     '🏆 獲勝',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -576,6 +588,18 @@ const en: TransMap = {
 
     // Player name fallback
     'player.fallback': (n: string) => `Player ${n}`,
+
+    // Guard elimination modal
+    'modal.guardEliminated':   'Caught by a Guard!',
+    'guard.eliminated':        (actor: string, card: string) => `${actor} correctly guessed your ${card}. You are eliminated.`,
+
+    // Prince + Princess warning
+    'prince.princess.warning': 'Your card is the Princess — discarding it will eliminate you immediately!',
+
+    // Deck-empty final showdown modal
+    'modal.deckShowdown':      'Deck Empty — Final Showdown',
+    'deckShowdown.intro':      'Survivors reveal their cards. Highest value wins:',
+    'deckShowdown.winner':     '🏆 Winner',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
