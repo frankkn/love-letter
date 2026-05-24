@@ -2030,13 +2030,13 @@ function getAICardPlayWeight(bot: Player, card: Card): number {
 
     switch (card.type) {
         case CardType.Guard:
-            weight = 18;
+            weight = 28;
             if (getBaronGuardClueTarget(bot.id, state.players.filter(player => (
                 player.id !== bot.id &&
                 player.isAlive &&
                 !player.isProtected
             )))) {
-                weight = 32;
+                weight = 42;
             }
             break;
         case CardType.Priest:
@@ -2065,7 +2065,7 @@ function getAICardPlayWeight(bot: Player, card: Card): number {
             weight = 7;
             break;
         case CardType.Countess:
-            weight = 6;
+            weight = 3;
             break;
         case CardType.Princess:
             weight = 0.1;
