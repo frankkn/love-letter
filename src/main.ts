@@ -605,8 +605,15 @@ function render() {
     turnIndicatorEl.textContent = `${t('game.turnLabel')}${currentPlayer.name}`;
     
     // 渲染對手區域
+    // Rotate so that the player immediately after localPlayer appears at the top,
+    // and everyone wraps around — giving each player a unique "self at bottom" view.
     opponentsContainerEl.innerHTML = '';
-    const opponents = state.players.filter(player => player.id !== localPlayer.id);
+    const n = state.players.length;
+    const opponents: Player[] = [];
+    for (let i = 1; i < n; i++) {
+        const p = state.players[(localPlayerId + i) % n];
+        if (p) opponents.push(p);
+    }
     opponentsContainerEl.dataset.opponentCount = String(opponents.length);
     gameSceneEl.dataset.opponentCount = String(opponents.length);
     document.body.dataset.opponentCount = String(opponents.length);
