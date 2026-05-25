@@ -1958,7 +1958,7 @@ function showChampionModal() {
         </div>
     `, `<button class="modal-confirm-btn" id="champion-restart-btn" style="background: #16a34a;">${t('btn.restart')}</button><button class="modal-confirm-btn" id="champion-return-btn" style="margin-left: 0.65rem; background: #64748b;">${t('btn.back')}</button>`);
 
-    document.getElementById('champion-restart-btn')!.onclick = () => requestRestart();
+    document.getElementById('champion-restart-btn')!.onclick = () => { closeModal(); requestRestart(); };
     document.getElementById('champion-return-btn')!.onclick = closeModal;
 }
 
