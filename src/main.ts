@@ -147,6 +147,10 @@ let isResolvingTurnAction = false;
 let queuedBotTurnId: number | null = null;
 let localPlayerId = 0;
 let onlineGameInitialized = false;
+
+// Dev mode: ?dev=1 lowers the champion threshold to 1 win for quick testing
+const DEV_MODE = new URLSearchParams(window.location.search).get('dev') === '1';
+const CHAMPION_THRESHOLD = DEV_MODE ? 1 : 4;
 let isApplyingOnlineState = false;
 
 interface LobbyRoomSummary {
@@ -1917,7 +1921,7 @@ function getRankedPlayers() {
 }
 
 function getLeagueChampion(): Player | null {
-    return state.players.find(player => player.coins >= 4) ?? null;
+    return state.players.find(player => player.coins >= CHAMPION_THRESHOLD) ?? null;
 }
 
 function createRankingHTML(): string {
