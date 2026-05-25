@@ -2832,7 +2832,7 @@ async function handlePendingForcedEffect() {
     }
 }
 
-function applyOnlineGameState(data: OnlineGameStateData) {
+function applyOnlineGameState(data: OnlineGameStateData, isInitialLoad = false) {
     // Drop syncs from prior rounds. With 3+ players, the "next round" sync race can produce
     // late game-over syncs that arrive after a newer round has already begun locally; without
     // this guard those stale syncs would rewind a player's UI to the previous round's result.
@@ -3052,9 +3052,16 @@ function applyOnlineGameState(data: OnlineGameStateData) {
     void handlePendingKingExchange();
 
     // If the current turn belongs to a bot, the host should drive it.
-    const currentPlayer = state?.players[state.currentTurnPlayerId];
-    if (!state?.isGameOver && currentPlayer?.isBot && currentPlayer.isAlive) {
-        queueBotTurn(state.currentTurnPlayerId);
+    // Only trigger on initial load (game start / reconnect) — NOT on regular echo syncs.
+    // During normal gameplay the host already calls queueBotTurn directly from endTurn /
+    // handoffTurnIfCurrentPlayerWasEliminated.  Triggering it again from every echo causes
+    // two concurrent botTurn executions: the second one sees hand.length >= 2 (already drawn
+    // by the first) and calls endTurn without playing a card, stalling the game.
+    if (isInitialLoad) {
+        const currentPlayer = state?.players[state.currentTurnPlayerId];
+        if (!state?.isGameOver && currentPlayer?.isBot && currentPlayer.isAlive) {
+            queueBotTurn(state.currentTurnPlayerId);
+        }
     }
 }
 
@@ -3067,7 +3074,7 @@ function applyOnlineGameData(data: OnlineGameData) {
         pendingBaronDuel: null,
         pendingKingExchange: null,
         nextRoundReadyPlayerIds: []
-    });
+    }, true /* isInitialLoad */);
 }
 
 function initOnlineGame(roomState: RoomWaitViewState) {
