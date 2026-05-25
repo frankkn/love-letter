@@ -1926,8 +1926,8 @@ body.game-scene-active #mute-btn-global {
     height: 126px;
   }
 
-  /* 玩家棄牌 hint：緊湊字型，減少垂直高度 */
-  #player-discard .card-action-hint {
+  /* 所有棄牌 hint：統一緊湊字型（電腦版玩家/電腦一致，不超框） */
+  body.game-scene-active #game-scene .card-action-hint {
     font-size: 0.68rem;
     padding: 3px 5px;
     min-height: 0;
@@ -1993,13 +1993,17 @@ body.game-scene-active #mute-btn-global {
     box-shadow: none;
   }
 
-  /* ── 所有 area 面板預設 overflow visible（對手 hint 需要溢出）── */
+  /* ── 所有 area 面板預設 overflow visible（卡牌 hover 效果需要）── */
   body.game-scene-active #game-scene .area {
     overflow: visible !important;
   }
 
-  /* 棄牌容器：clip overflow 防止 hint 溢出玩家面板金框外
-     （手牌區 #player-hand 不受影響，其 card-desc 仍可正常浮出） */
+  /* 玩家面板：clip overflow，防止 hint 溢出金框外 */
+  body.game-scene-active #game-scene #player-area {
+    overflow: hidden !important;
+  }
+
+  /* 棄牌容器：clip overflow 防止 hint 溢出玩家面板金框外 */
   body.game-scene-active #game-scene #player-discard {
     overflow: hidden !important;
   }
@@ -2036,6 +2040,73 @@ body.game-scene-active #mute-btn-global {
     border-color: rgba(255,255,255,0.07) !important;
     opacity: 0.55;
     filter: grayscale(0.5);
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     依對手人數調整等比例分割
+     1 對手 → 上下各半 (50/50)
+     2 對手 → 三等分 (各 1/3)
+  ══════════════════════════════════════════════════════════ */
+
+  /* 1 對手：main-battle-area 改成 1fr 1fr */
+  body.game-scene-active #game-scene[data-opponent-count="1"] .main-battle-area {
+    grid-template-rows: 1fr 1fr;
+  }
+
+  /* 2 對手：main-battle-area 三等分；opponents-container 佔前兩行，內部上下堆疊 */
+  body.game-scene-active #game-scene[data-opponent-count="2"] .main-battle-area {
+    grid-template-rows: 1fr 1fr 1fr;
+  }
+
+  body.game-scene-active #game-scene[data-opponent-count="2"] #opponents-container {
+    grid-row: 1 / 3;
+    display: grid !important;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 12px;
+  }
+
+  /* 1 或 2 對手：電腦手牌卡片與玩家相同大小 (100×140px) */
+  body.game-scene-active #game-scene[data-opponent-count="1"] .opponent-area .hand-container .card-wrapper,
+  body.game-scene-active #game-scene[data-opponent-count="2"] .opponent-area .hand-container .card-wrapper {
+    width: 100px;
+  }
+
+  body.game-scene-active #game-scene[data-opponent-count="1"] .opponent-area .hand-container .card,
+  body.game-scene-active #game-scene[data-opponent-count="2"] .opponent-area .hand-container .card {
+    width: 100px;
+    height: 140px;
+  }
+
+  /* 1 或 2 對手：手牌容器固定寬度 220px，橫向排列（與玩家一致） */
+  body.game-scene-active #game-scene[data-opponent-count="1"] .opponent-area .hand-container,
+  body.game-scene-active #game-scene[data-opponent-count="2"] .opponent-area .hand-container {
+    min-width: 220px;
+    width: 220px;
+    flex-direction: row;
+    justify-content: center;
+  }
+
+  /* 1 或 2 對手：電腦棄牌區與玩家棄牌區相同大小 (90×126px) */
+  body.game-scene-active #game-scene[data-opponent-count="1"] .opponent-area .discard-container,
+  body.game-scene-active #game-scene[data-opponent-count="2"] .opponent-area .discard-container {
+    grid-template-columns: repeat(auto-fill, 90px);
+  }
+
+  body.game-scene-active #game-scene[data-opponent-count="1"] .opponent-area .discard-container .card-wrapper,
+  body.game-scene-active #game-scene[data-opponent-count="2"] .opponent-area .discard-container .card-wrapper {
+    width: 90px;
+  }
+
+  body.game-scene-active #game-scene[data-opponent-count="1"] .opponent-area .discard-container .card,
+  body.game-scene-active #game-scene[data-opponent-count="2"] .opponent-area .discard-container .card {
+    width: 90px;
+    height: 126px;
+  }
+
+  body.game-scene-active #game-scene[data-opponent-count="1"] .opponent-area .discard-container .card-action-hints,
+  body.game-scene-active #game-scene[data-opponent-count="2"] .opponent-area .discard-container .card-action-hints {
+    width: 90px;
   }
 
 } /* end @media (min-width: 901px) */
