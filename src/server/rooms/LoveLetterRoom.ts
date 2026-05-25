@@ -1,4 +1,4 @@
-import { type Client, Room, ServerError } from "colyseus";
+import { CloseCode, type Client, Room, ServerError } from "colyseus";
 import { GameRoomState } from "../schema/GameRoomState.js";
 import { PlayerState } from "../schema/PlayerState.js";
 
@@ -123,6 +123,15 @@ export class LoveLetterRoom extends Room<{ state: GameRoomState }> {
             console.log(`[LoveLetterRoom] ${targetPlayer.name} was kicked from room ${this.roomId} by the host.`);
         });
 
+        this.onMessage("forfeit_game", client => {
+            const player = this.getPlayerOrThrow(client.sessionId);
+            if (!this.state.isGameStarted) {
+                throw new LobbyException("Game has not started yet.");
+            }
+            player.hasForfeited = true;
+            console.log(`[LoveLetterRoom] ${player.name} forfeited from room ${this.roomId}.`);
+        });
+
         this.onMessage("init_game_data", (client, data) => {
             const player = this.getPlayerOrThrow(client.sessionId);
             if (!player.isHost) {
@@ -201,7 +210,12 @@ export class LoveLetterRoom extends Room<{ state: GameRoomState }> {
                 `Consented/code: ${String(consented)}. Keeping player slot for game-state stability.`
             );
 
-            if (consented === true) {
+            // Colyseus calls onLeave(client, CloseCode.CONSENTED) (= 4000) for voluntary leaves,
+            // not the boolean `true`. Handle both forms to be safe.
+            if (consented === true || consented === CloseCode.CONSENTED) {
+                // Voluntary leave during a game: mark the player as forfeited so
+                // non-host clients can immediately detect the game is over.
+                leavingPlayer.hasForfeited = true;
                 this.disposeStartedRoomIfEveryoneLeft("all players left voluntarily");
                 return;
             }
