@@ -29,7 +29,8 @@
       "Bash(git commit -m 'feat: text chat room — Colyseus broadcast + slide-up panel \\(Step 2\\) *)",
       "Bash(git commit -m 'feat: WebRTC voice chat — mesh P2P via Colyseus signaling \\(Step 3\\) *)",
       "Bash(git commit -m 'fix: guard webrtc_signal handler against localAudioStream race condition *)",
-      "Bash(git commit -m 'fix: stop local audio stream immediately on room disconnect *)"
+      "Bash(git commit -m 'fix: stop local audio stream immediately on room disconnect *)",
+      "Bash(git commit -m 'fix: make icon-btn and game-icon-group styles global \\(desktop support\\) *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\frank2_yang\\Desktop\\love-letter\\public\\icons"
