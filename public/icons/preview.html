@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Icon Preview</title>
+  <style>
+    body { background: #1a1a2e; display: flex; gap: 60px; padding: 60px; align-items: flex-start; justify-content: center; font-family: sans-serif; }
+    .item { display: flex; flex-direction: column; align-items: center; gap: 16px; color: #ccc; }
+    .icon-box { width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.06); border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); }
+    .divider { width: 1px; height: 360px; background: rgba(255,255,255,0.15); margin-top: 80px; }
+    h3 { color: #888; font-size: 0.8rem; margin: 0; text-align: center; line-height: 1.5; }
+
+    /* 各狀態顏色 */
+    .on  { fill: #f4f4f4; }
+    .muted { fill: #e74c3c; }
+    .speaking { fill: #2ecc71; }
+    .inactive { fill: #555; }
+  </style>
+</head>
+<body>
+
+  <!-- 麥克風 -->
+  <div class="item">
+
+    <h3>麥克風<br>開啟</h3>
+    <div class="icon-box">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 80" width="34" height="42">
+        <rect class="on" x="20" y="4" width="24" height="38" rx="12"/>
+        <path class="on" d="M10 34 Q10 60 32 60 Q54 60 54 34" stroke="#f4f4f4" stroke-width="5" fill="none" stroke-linecap="round"/>
+        <line stroke="#f4f4f4" x1="32" y1="60" x2="32" y2="72" stroke-width="5" stroke-linecap="round"/>
+        <line stroke="#f4f4f4" x1="16" y1="72" x2="48" y2="72" stroke-width="5" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <h3>麥克風<br>靜音</h3>
+    <div class="icon-box">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 80" width="34" height="42">
+        <rect class="muted" x="20" y="4" width="24" height="38" rx="12"/>
+        <path d="M10 34 Q10 60 32 60 Q54 60 54 34" stroke="#e74c3c" stroke-width="5" fill="none" stroke-linecap="round"/>
+        <line stroke="#e74c3c" x1="32" y1="60" x2="32" y2="72" stroke-width="5" stroke-linecap="round"/>
+        <line stroke="#e74c3c" x1="16" y1="72" x2="48" y2="72" stroke-width="5" stroke-linecap="round"/>
+        <!-- 斜線 -->
+        <line stroke="#e74c3c" x1="10" y1="10" x2="54" y2="70" stroke-width="5" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <h3>說話中</h3>
+    <div class="icon-box">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 80" width="34" height="42">
+        <rect class="speaking" x="20" y="4" width="24" height="38" rx="12"/>
+        <path d="M10 34 Q10 60 32 60 Q54 60 54 34" stroke="#2ecc71" stroke-width="5" fill="none" stroke-linecap="round"/>
+        <line stroke="#2ecc71" x1="32" y1="60" x2="32" y2="72" stroke-width="5" stroke-linecap="round"/>
+        <line stroke="#2ecc71" x1="16" y1="72" x2="48" y2="72" stroke-width="5" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <h3>未加入</h3>
+    <div class="icon-box">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 80" width="34" height="42">
+        <rect class="inactive" x="20" y="4" width="24" height="38" rx="12"/>
+        <path d="M10 34 Q10 60 32 60 Q54 60 54 34" stroke="#555" stroke-width="5" fill="none" stroke-linecap="round"/>
+        <line stroke="#555" x1="32" y1="60" x2="32" y2="72" stroke-width="5" stroke-linecap="round"/>
+        <line stroke="#555" x1="16" y1="72" x2="48" y2="72" stroke-width="5" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 喇叭 -->
+  <div class="item">
+
+    <h3>喇叭<br>開啟</h3>
+    <div class="icon-box">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 64" width="42" height="34">
+        <polygon class="on" points="6,20 28,20 46,6 46,58 28,44 6,44"/>
+        <path d="M54,26 Q60,32 54,38" stroke="#f4f4f4" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+        <path d="M60,19 Q72,32 60,45" stroke="#f4f4f4" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+        <path d="M66,12 Q82,32 66,52" stroke="#f4f4f4" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <h3>喇叭<br>靜音</h3>
+    <div class="icon-box">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 64" width="42" height="34">
+        <polygon class="muted" points="6,20 28,20 46,6 46,58 28,44 6,44"/>
+        <line stroke="#e74c3c" x1="54" y1="20" x2="76" y2="44" stroke-width="4.5" stroke-linecap="round"/>
+        <line stroke="#e74c3c" x1="76" y1="20" x2="54" y2="44" stroke-width="4.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+  </div>
+
+</body>
+</html>

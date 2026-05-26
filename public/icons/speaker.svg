@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 64" fill="black">
+  <!-- Speaker cone body -->
+  <polygon points="6,20 28,20 46,6 46,58 28,44 6,44"/>
+  <!-- Sound wave 1 (small) -->
+  <path d="M54,26 Q60,32 54,38"
+        stroke="black" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+  <!-- Sound wave 2 (medium) -->
+  <path d="M60,19 Q72,32 60,45"
+        stroke="black" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+  <!-- Sound wave 3 (large) -->
+  <path d="M66,12 Q82,32 66,52"
+        stroke="black" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+</svg>

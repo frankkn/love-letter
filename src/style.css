@@ -689,7 +689,8 @@ h3 {
   margin-bottom: 0;
 }
 
-.stats-row {
+/* .stats-row 已改為 .game-top-row，此規則保留給桌機版 fallback */
+.game-top-row {
   flex: 1 1 auto;
   display: flex;
   justify-content: space-between;
@@ -787,49 +788,11 @@ h3 {
   text-align: left;
 }
 
-/* back-home row — mute icon overlays the button absolutely */
-.back-home-row {
-  position: relative;
-  display: flex;
-  align-items: center;
-  width: 100%;
-}
-
-.back-home-row #back-home-btn {
-  flex: 1 1 auto;
-  width: 100% !important;
-  padding: 5px 2.4rem 5px 15px; /* right room for the mute icon */
-}
-
-/* Mute button — absolute overlay on the right side of back-home-row */
+/* 喇叭按鈕（遊戲場景內）— 現在是 .icon-btn，樣式由 .icon-btn 統一管理 */
+/* 桌機版額外尺寸覆寫 */
 #mute-btn {
-  position: absolute;
-  right: 4px;
-  top: 50%;
-  transform: translateY(-50%);
   width: 1.9rem;
   height: 1.9rem;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-  color: #f4f4f4;
-  font-size: 0.88rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  line-height: 1;
-  transition: background 0.15s;
-  z-index: 1;
-}
-
-#mute-btn:hover {
-  background: rgba(255, 255, 255, 0.13);
-}
-
-#mute-btn:active {
-  opacity: 0.7;
 }
 
 /* Global mute button — fixed top-right, hidden during game scene */
@@ -1792,9 +1755,13 @@ body.game-scene-active #mute-btn-global {
     gap: 10px;
   }
 
-  /* stats-row 只佔自然寬度，不擴張 */
-  body.game-scene-active .stats .stats-row {
+  /* game-top-row 只佔自然寬度，不擴張 */
+  body.game-scene-active .stats .game-top-row {
     flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: auto;
   }
 
   /* 回合指示器不換行 */
@@ -1802,25 +1769,19 @@ body.game-scene-active #mute-btn-global {
     white-space: nowrap;
   }
 
-  /* 回主選單 + 靜音 推到最右，不拉伸 */
-  body.game-scene-active .stats .back-home-row {
+  /* action row 推到最右，收縮 */
+  body.game-scene-active .stats .game-action-row {
     width: auto;
     flex-shrink: 0;
     margin-left: auto;
     gap: 4px;
   }
 
-  /* 回主選單按鈕寬度自動（不填滿）；移除右側為絕對靜音按鈕預留的 padding */
-  body.game-scene-active .stats .back-home-row #back-home-btn {
+  /* 桌機版 action row 的按鈕寬度自動 */
+  body.game-scene-active .stats .game-action-row > button {
     width: auto !important;
     padding: 5px 14px !important;
-  }
-
-  /* 靜音按鈕：取消絕對定位，改為一般 flex 項目，緊貼按鈕右側 */
-  body.game-scene-active .stats .back-home-row #mute-btn {
-    position: static;
-    transform: none;
-    flex-shrink: 0;
+    flex: 0 0 auto;
   }
 
   /* 頂欄 draw-btn 在電腦版隱藏（按鈕已移至玩家區右側） */
@@ -2231,7 +2192,7 @@ body.game-scene-active #mute-btn-global {
     margin-bottom: 0;
   }
 
-  .stats-row {
+  .game-top-row {
     flex: 1 1 auto;
     min-width: 0;
   }
@@ -2336,14 +2297,17 @@ body.game-scene-active #mute-btn-global {
     margin-bottom: 0;
   }
 
-  .stats-row {
+  /* ── Row 1: game-top-row ── */
+  .game-top-row {
     flex: 1 1 100%;
-    gap: 0.25rem;
-    font-size: 0.72rem;
+    display: grid;
+    grid-template-columns: 35% 25% 25% 15%;
+    align-items: center;
+    min-height: 32px;
+    gap: 0;
   }
 
   #turn-indicator {
-    flex: 1 1 auto;
     min-width: 0;
     padding: 0.18rem 0.35rem;
     font-size: 0.72rem;
@@ -2353,44 +2317,106 @@ body.game-scene-active #mute-btn-global {
   }
 
   #deck-count {
-    flex: 0 0 auto;
     font-size: 0.72rem;
     white-space: nowrap;
+    text-align: center;
   }
 
-  #draw-btn,
-  .result-btn,
-  #show-log-btn,
-  .back-home-row {
-    width: auto !important;
+  /* 出牌統計按鈕（mobile-stats-toggle）在 top-row 裡置中 */
+  .game-top-row .mobile-stats-toggle {
+    justify-self: center;
+  }
+
+  /* Icon 群（喇叭＋麥克風）*/
+  .game-icon-group {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+  }
+
+  /* 共用 icon 按鈕樣式 */
+  .icon-btn {
+    width: 1.55rem;
+    height: 1.55rem;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.06);
+    color: #f4f4f4;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    flex-shrink: 0;
+    transition: background 0.15s;
+  }
+
+  .icon-btn:hover {
+    background: rgba(255, 255, 255, 0.13);
+  }
+
+  .icon-btn:active {
+    opacity: 0.7;
+  }
+
+  .icon-btn svg {
+    width: 58%;
+    height: 58%;
+    display: block;
+  }
+
+  /* SVG 喇叭靜音狀態：隱藏音波、顯示 X */
+  .muted-x {
+    display: none;
+  }
+
+  .icon-btn.muted .sound-waves {
+    display: none;
+  }
+
+  .icon-btn.muted .muted-x {
+    display: block;
+  }
+
+  /* ── Row 2: game-action-row ── */
+  .game-action-row {
+    flex: 1 1 100%;
+    display: flex;
+    gap: 4px;
+    min-height: 32px;
+  }
+
+  /* 每個按鈕等寬（隱藏的不佔位）*/
+  .game-action-row > button {
     flex: 1 1 0;
     min-width: 0;
     min-height: 32px;
-    font-size: 0.75rem;
-  }
-
-  #draw-btn,
-  .result-btn,
-  #show-log-btn {
-    padding: 0.35rem 0.45rem !important;
+    padding: 0.35rem 0.3rem !important;
+    font-size: 0.72rem;
     line-height: 1.1;
     border-radius: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .back-home-row #back-home-btn {
-    width: 100% !important;
-    min-height: 32px;
-    padding: 0.35rem 1.9rem 0.35rem 0.3rem !important;
-    font-size: 0.75rem;
-    line-height: 1.1;
-    border-radius: 6px;
-  }
-
-  #mute-btn {
-    width: 1.6rem;
-    height: 1.6rem;
-    font-size: 0.75rem;
-    right: 3px;
+  /* 聊天室未讀 badge */
+  .chat-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.1em;
+    height: 1.1em;
+    padding: 0 0.25em;
+    margin-left: 3px;
+    border-radius: 999px;
+    background: #e74c3c;
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: bold;
+    line-height: 1;
+    vertical-align: middle;
   }
 
   #mute-btn-global {

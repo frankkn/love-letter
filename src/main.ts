@@ -325,11 +325,12 @@ function getAudioSrc(filename: string): string {
 function applyMuteState() {
     bgmAudio.muted = isMuted;
     sfxAudio.muted = isMuted;
-    const icon = isMuted ? '🔇' : '🔊';
+    // 遊戲內喇叭：用 CSS class 切換 SVG 音波 / X
     const btn = document.getElementById('mute-btn') as HTMLButtonElement | null;
-    if (btn) btn.textContent = icon;
+    if (btn) btn.classList.toggle('muted', isMuted);
+    // 全域喇叭（非遊戲場景用，維持 emoji）
     const btnGlobal = document.getElementById('mute-btn-global') as HTMLButtonElement | null;
-    if (btnGlobal) btnGlobal.textContent = icon;
+    if (btnGlobal) btnGlobal.textContent = isMuted ? '🔇' : '🔊';
 }
 
 function unlockAudio() {
@@ -501,14 +502,8 @@ const modalBody = document.getElementById('modal-body')!;
 const modalFooter = document.getElementById('modal-footer')!;
 let endGameReason = '';
 
-const mobileStatsToggleBtn = document.createElement('button');
-mobileStatsToggleBtn.type = 'button';
-mobileStatsToggleBtn.className = 'mobile-stats-toggle';
-mobileStatsToggleBtn.dataset.i18n = 'game.statsToggle';
-mobileStatsToggleBtn.setAttribute('aria-controls', 'played-card-stats');
-mobileStatsToggleBtn.setAttribute('aria-expanded', 'false');
-// Inline in the stats-row (next to turn-indicator and deck-count)
-document.querySelector('.stats-row')!.appendChild(mobileStatsToggleBtn);
+// 出牌統計切換按鈕（HTML 中已靜態宣告為 #stats-toggle-btn）
+const mobileStatsToggleBtn = document.getElementById('stats-toggle-btn') as HTMLButtonElement;
 
 // 5. 輔助函式
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -753,11 +748,18 @@ function render() {
     }
     showResultBtn.style.display = state.isGameOver ? 'block' : 'none';
 
-    // Show "Leave Game" only in an active online game (and only while it is in progress).
+    // "離開本局遊戲" 僅在線上遊戲進行中顯示，並取代 "回主選單" 的位置
     const leaveGameBtn = document.getElementById('leave-game-btn') as HTMLButtonElement | null;
-    if (leaveGameBtn) {
-        leaveGameBtn.style.display = isOnlineGameActive() && !state.isGameOver ? 'inline-flex' : 'none';
-    }
+    const backHomeBtn = document.getElementById('back-home-btn') as HTMLButtonElement | null;
+    const onlineActive = isOnlineGameActive() && !state.isGameOver;
+    if (leaveGameBtn) leaveGameBtn.style.display = onlineActive ? 'flex' : 'none';
+    if (backHomeBtn) backHomeBtn.style.display = onlineActive ? 'none' : '';
+
+    // 聊天室、麥克風：僅多人連線時顯示
+    const chatBtn = document.getElementById('chat-btn') as HTMLButtonElement | null;
+    const micBtn = document.getElementById('mic-btn') as HTMLButtonElement | null;
+    if (chatBtn) chatBtn.style.display = isOnlineGameActive() ? 'flex' : 'none';
+    if (micBtn) micBtn.style.display = isOnlineGameActive() ? 'flex' : 'none';
 }
 
 function createCardUI(card: Card, isPlayable: boolean): HTMLElement {

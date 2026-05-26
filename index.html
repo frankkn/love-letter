@@ -151,17 +151,46 @@
         <div class="sidebar-area">
           <div id="game-info-area" class="area">
             <div class="stats">
-              <div class="stats-row">
+              <!-- Row 1: 狀態資訊 + icon 群 -->
+              <div class="game-top-row">
                 <div id="turn-indicator">當前回合：玩家</div>
                 <span id="deck-count">牌堆剩餘：0</span>
+                <button id="stats-toggle-btn" type="button" class="mobile-stats-toggle"
+                        data-i18n="game.statsToggle"
+                        aria-controls="played-card-stats" aria-expanded="false">出牌統計</button>
+                <div class="game-icon-group">
+                  <!-- 麥克風（僅多人連線時顯示） -->
+                  <button id="mic-btn" type="button" class="icon-btn" aria-label="Toggle mic" style="display:none;">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 80" fill="currentColor">
+                      <rect x="20" y="4" width="24" height="38" rx="12"/>
+                      <path d="M10 34 Q10 60 32 60 Q54 60 54 34" stroke="currentColor" stroke-width="5" fill="none" stroke-linecap="round"/>
+                      <line x1="32" y1="60" x2="32" y2="72" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+                      <line x1="16" y1="72" x2="48" y2="72" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+                    </svg>
+                  </button>
+                  <!-- 喇叭（SVG，支援 .muted class 切換） -->
+                  <button id="mute-btn" type="button" class="icon-btn" aria-label="Toggle mute">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 64" fill="currentColor">
+                      <polygon points="6,20 28,20 46,6 46,58 28,44 6,44"/>
+                      <path class="sound-waves" d="M54,26 Q60,32 54,38" stroke="currentColor" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+                      <path class="sound-waves" d="M60,19 Q72,32 60,45" stroke="currentColor" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+                      <path class="sound-waves" d="M66,12 Q82,32 66,52" stroke="currentColor" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+                      <line class="muted-x" x1="54" y1="20" x2="76" y2="44" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/>
+                      <line class="muted-x" x1="76" y1="20" x2="54" y2="44" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
-              <button id="draw-btn" data-i18n="game.draw">抽牌</button>
-              <button id="show-result-btn" class="result-btn" style="display: none;" data-i18n="game.viewResult">查看結果</button>
-              <button id="show-log-btn" class="menu-btn secondary" data-i18n="game.viewLog">查看對戰紀錄</button>
-              <div class="back-home-row">
+              <!-- Row 2: 操作按鈕列 -->
+              <div class="game-action-row">
+                <button id="draw-btn" data-i18n="game.draw">抽牌</button>
+                <button id="show-result-btn" class="result-btn" style="display:none;" data-i18n="game.viewResult">查看結果</button>
+                <button id="show-log-btn" class="menu-btn secondary" data-i18n="game.viewLog">查看對戰紀錄</button>
+                <button id="chat-btn" type="button" class="menu-btn secondary" style="display:none;">
+                  聊天室<span id="chat-unread-badge" class="chat-badge" style="display:none;"></span>
+                </button>
                 <button id="back-home-btn" class="menu-btn secondary" data-i18n="game.backHome">回主選單</button>
                 <button id="leave-game-btn" class="menu-btn secondary" style="display:none;" data-i18n="btn.leaveGame">離開本局遊戲</button>
-                <button id="mute-btn" aria-label="Toggle mute">🔊</button>
               </div>
             </div>
             <div id="game-log" class="log-container">

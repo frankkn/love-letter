@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 80" fill="black">
+  <!-- Microphone capsule body -->
+  <rect x="20" y="4" width="24" height="38" rx="12" ry="12"/>
+  <!-- U-shaped stand -->
+  <path d="M10 34 Q10 60 32 60 Q54 60 54 34"
+        stroke="black" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <!-- Vertical stem -->
+  <line x1="32" y1="60" x2="32" y2="72" stroke="black" stroke-width="5" stroke-linecap="round"/>
+  <!-- Base -->
+  <line x1="16" y1="72" x2="48" y2="72" stroke="black" stroke-width="5" stroke-linecap="round"/>
+</svg>
