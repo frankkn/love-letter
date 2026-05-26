@@ -26,7 +26,8 @@
       "Bash(mkdir -p \"c:/Users/frank2_yang/Desktop/love-letter/public/icons\")",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173/love-letter/)",
       "Bash(git commit -m 'feat: redesign game top bar — game-top-row grid + game-action-row flex \\(Step 1 UI\\) *)",
-      "Bash(git commit -m 'feat: text chat room — Colyseus broadcast + slide-up panel \\(Step 2\\) *)"
+      "Bash(git commit -m 'feat: text chat room — Colyseus broadcast + slide-up panel \\(Step 2\\) *)",
+      "Bash(git commit -m 'feat: WebRTC voice chat — mesh P2P via Colyseus signaling \\(Step 3\\) *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\frank2_yang\\Desktop\\love-letter\\public\\icons"

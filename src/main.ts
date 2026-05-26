@@ -226,6 +226,18 @@ interface ChatMsg { sessionId: string; name: string; text: string; timestamp: nu
 let chatMessages: ChatMsg[] = [];
 let chatUnreadCount = 0;
 let isChatOpen = false;
+
+// ── 語音聊天狀態 ─────────────────────────────────────────────────────────────
+const WEBRTC_ICE_SERVERS: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }];
+let localAudioStream: MediaStream | null = null;
+let peerConnections = new Map<string, RTCPeerConnection>();
+let voiceActive = false;        // 是否在語音頻道
+let voiceMicMuted = false;      // 是否麥克風靜音
+/** sessionId → { analyser, data buffer } 用於說話偵測 */
+let voiceAnalysers = new Map<string, { analyser: AnalyserNode; data: Uint8Array<ArrayBuffer> }>();
+let voiceAudioContext: AudioContext | null = null;
+/** sessionId → 是否正在說話 */
+const voiceSpeakingStates = new Map<string, boolean>();
 let hasShownEndGameModal = false;
 let nextRoundReadyPlayerIds: number[] = [];
 let restartReadyPlayerIds: number[] = [];
@@ -420,6 +432,9 @@ applyMuteState();
 function resetClientState() {
     const leavingGameRoom = activeGameRoom;
     const leavingLobbyRoom = lobbyRoom;
+
+    // 離開語音頻道並清理所有 WebRTC 連線
+    if (voiceActive) leaveVoice();
 
     activeGameRoom = null;
     lobbyRoom = null;
@@ -658,9 +673,15 @@ function render() {
         const isWinner = state.winner?.id === bot.id;
         const shouldRevealHand = state.isGameOver || bot.isHandRevealed;
         botArea.className = `area opponent-area ${bot.isProtected ? 'protected' : ''} ${!bot.isAlive ? 'eliminated' : ''} ${isActive ? 'active-turn' : ''} ${isWinner ? 'winner-area' : ''}`;
+        botArea.dataset.playerId = String(bot.id);
+        // 說話中狀態（WebRTC 說話偵測）
+        const botSessionId = getSessionIdForPlayerId(bot.id);
+        if (botSessionId && voiceSpeakingStates.get(botSessionId)) {
+            botArea.classList.add('voice-speaking');
+        }
         botArea.innerHTML = `
             ${isWinner ? `<div class="winner-crown" title="${t('game.winner')}">♛</div>` : ''}
-            <h3>${getPlayerTitleHTML(bot)}</h3>
+            <h3>${getPlayerTitleHTML(bot)}<span class="voice-speaking-dot" title="說話中"></span></h3>
             <div class="discard-container"></div>
             <div class="hand-container"></div>
         `;
@@ -3539,6 +3560,17 @@ async function joinLobbyRoom(roomId: string) {
 
 function bindGameRoom(room: Room<unknown, SyncedRoomState>, isReconnect = false) {
     activeGameRoom?.removeAllListeners();
+    // 換房間時清除舊的 WebRTC 連線（不通知舊 room，連線已失效）
+    if (voiceActive) {
+        for (const peerId of [...peerConnections.keys()]) closePeerConnection(peerId);
+        localAudioStream?.getTracks().forEach(t => t.stop());
+        localAudioStream = null;
+        voiceActive = false;
+        voiceMicMuted = false;
+        voiceAnalysers.clear();
+        voiceSpeakingStates.clear();
+        updateMicButtonState();
+    }
     activeGameRoom = room;
     // Save the token immediately so onLeave can use it even after the socket closes.
     savedReconnectionToken = room.reconnectionToken ?? null;
@@ -3573,6 +3605,49 @@ function bindGameRoom(room: Room<unknown, SyncedRoomState>, isReconnect = false)
     room.onMessage<ChatMsg>('chat_message', msg => {
         addChatMessage(msg);
     });
+
+    // ── WebRTC 語音信令 ──────────────────────────────────────────────────────
+    room.onMessage<{ type: string; existingParticipants?: string[]; sessionId?: string }>(
+        'webrtc_voice_state',
+        async data => {
+            if (data.type === 'you_joined') {
+                // 我加入了：對每個已在語音的 peer 發起 offer
+                for (const peerId of (data.existingParticipants ?? [])) {
+                    const pc = createPeerConnection(peerId);
+                    const offer = await pc.createOffer();
+                    await pc.setLocalDescription(offer);
+                    activeGameRoom?.send('webrtc_signal', { to: peerId, type: 'offer', payload: { type: offer.type, sdp: offer.sdp } });
+                }
+            } else if (data.type === 'peer_left' && data.sessionId) {
+                closePeerConnection(data.sessionId);
+            }
+            // 'peer_joined'：新加入者會主動對我發 offer，不需要我主動建立
+        }
+    );
+
+    room.onMessage<{ from: string; type: 'offer' | 'answer' | 'ice'; payload: unknown }>(
+        'webrtc_signal',
+        async data => {
+            if (!voiceActive) return;
+            try {
+                if (data.type === 'offer') {
+                    const pc = createPeerConnection(data.from);
+                    await pc.setRemoteDescription(new RTCSessionDescription(data.payload as RTCSessionDescriptionInit));
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                    activeGameRoom?.send('webrtc_signal', { to: data.from, type: 'answer', payload: { type: answer.type, sdp: answer.sdp } });
+                } else if (data.type === 'answer') {
+                    const pc = peerConnections.get(data.from);
+                    if (pc) await pc.setRemoteDescription(new RTCSessionDescription(data.payload as RTCSessionDescriptionInit));
+                } else if (data.type === 'ice') {
+                    const pc = peerConnections.get(data.from);
+                    if (pc) await pc.addIceCandidate(new RTCIceCandidate(data.payload as RTCIceCandidateInit));
+                }
+            } catch (err) {
+                console.warn('[WebRTC] Signal handling error:', err);
+            }
+        }
+    );
 
     room.onMessage('kicked_from_room', () => {
         // Server notified us we were kicked — leave cleanly and return to lobby.
@@ -4120,6 +4195,160 @@ function sendChatMessage() {
     activeGameRoom.send('chat_message', { text });
     chatInputEl.value = '';
 }
+
+// ── 語音聊天函式 ─────────────────────────────────────────────────────────────
+
+/** 取得指定 playerId 對應的 Colyseus sessionId（純玩家，機器人回傳 null） */
+function getSessionIdForPlayerId(playerId: number): string | null {
+    return currentRoomWaitState?.players[playerId]?.id ?? null;
+}
+
+/** 更新麥克風按鈕的視覺狀態 */
+function updateMicButtonState() {
+    const btn = document.getElementById('mic-btn');
+    if (!btn) return;
+    btn.classList.toggle('voice-active', voiceActive && !voiceMicMuted);
+    btn.classList.toggle('voice-muted',  voiceActive && voiceMicMuted);
+    // 麥克風靜音時，重用喇叭靜音的 SVG 斜線效果
+    btn.classList.toggle('muted', voiceActive && voiceMicMuted);
+}
+
+/** 根據 voiceSpeakingStates 更新對手區域的說話指示燈 */
+function updateSpeakingIndicators() {
+    if (!isOnlineGameActive() || !currentRoomWaitState) return;
+    for (const [sessionId, isSpeaking] of voiceSpeakingStates) {
+        const playerIdx = currentRoomWaitState.players.findIndex(p => p.id === sessionId);
+        if (playerIdx < 0) continue;
+        const el = document.querySelector<HTMLElement>(`.opponent-area[data-player-id="${playerIdx}"]`);
+        el?.classList.toggle('voice-speaking', isSpeaking);
+    }
+}
+
+/** 為遠端 peer 建立音訊播放並開始說話偵測 */
+function setupRemoteAudio(peerId: string, stream: MediaStream) {
+    // 建立或重用 <audio> 元素
+    let audioEl = document.getElementById(`voice-audio-${peerId}`) as HTMLAudioElement | null;
+    if (!audioEl) {
+        audioEl = document.createElement('audio');
+        audioEl.id = `voice-audio-${peerId}`;
+        audioEl.autoplay = true;
+        audioEl.style.display = 'none';
+        document.body.appendChild(audioEl);
+    }
+    audioEl.srcObject = stream;
+
+    // 說話偵測：Web Audio API
+    if (!voiceAudioContext) voiceAudioContext = new AudioContext();
+    const source = voiceAudioContext.createMediaStreamSource(stream);
+    const analyser = voiceAudioContext.createAnalyser();
+    analyser.fftSize = 512;
+    source.connect(analyser);
+    const data = new Uint8Array(analyser.frequencyBinCount) as Uint8Array<ArrayBuffer>;
+    voiceAnalysers.set(peerId, { analyser, data });
+}
+
+/** 建立與指定 peer 的 RTCPeerConnection */
+function createPeerConnection(peerId: string): RTCPeerConnection {
+    // 關閉舊連線（若存在）
+    peerConnections.get(peerId)?.close();
+
+    const pc = new RTCPeerConnection({ iceServers: WEBRTC_ICE_SERVERS });
+    peerConnections.set(peerId, pc);
+
+    // 加入本地音訊軌道
+    localAudioStream?.getTracks().forEach(track => {
+        pc.addTrack(track, localAudioStream!);
+    });
+
+    // ICE candidate → 透過 Colyseus 轉送
+    pc.onicecandidate = e => {
+        if (e.candidate) {
+            activeGameRoom?.send('webrtc_signal', { to: peerId, type: 'ice', payload: e.candidate.toJSON() });
+        }
+    };
+
+    // 收到遠端音訊軌道
+    pc.ontrack = e => {
+        const stream = e.streams[0];
+        if (stream) setupRemoteAudio(peerId, stream);
+    };
+
+    // 連線失敗時清除
+    pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+            closePeerConnection(peerId);
+        }
+    };
+
+    return pc;
+}
+
+/** 關閉與指定 peer 的連線並清理資源 */
+function closePeerConnection(peerId: string) {
+    peerConnections.get(peerId)?.close();
+    peerConnections.delete(peerId);
+    voiceAnalysers.delete(peerId);
+    voiceSpeakingStates.delete(peerId);
+    document.getElementById(`voice-audio-${peerId}`)?.remove();
+    updateSpeakingIndicators();
+}
+
+/** 加入語音頻道 */
+async function joinVoice() {
+    try {
+        localAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        voiceActive = true;
+        voiceMicMuted = false;
+        activeGameRoom?.send('webrtc_join_voice');
+        updateMicButtonState();
+    } catch {
+        alert('無法取得麥克風權限，請在瀏覽器設定中允許麥克風存取。');
+    }
+}
+
+/** 離開語音頻道 */
+function leaveVoice() {
+    activeGameRoom?.send('webrtc_leave_voice');
+    for (const peerId of [...peerConnections.keys()]) closePeerConnection(peerId);
+    localAudioStream?.getTracks().forEach(t => t.stop());
+    localAudioStream = null;
+    voiceActive = false;
+    voiceMicMuted = false;
+    voiceAnalysers.clear();
+    voiceSpeakingStates.clear();
+    updateMicButtonState();
+    updateSpeakingIndicators();
+}
+
+/** 切換麥克風靜音（或第一次點擊時加入語音） */
+function handleMicClick() {
+    if (!voiceActive) {
+        void joinVoice();
+        return;
+    }
+    voiceMicMuted = !voiceMicMuted;
+    localAudioStream?.getTracks().forEach(t => { t.enabled = !voiceMicMuted; });
+    updateMicButtonState();
+}
+
+/** 說話偵測定時器：每 100ms 採樣一次音量 */
+setInterval(() => {
+    if (!voiceActive || voiceAnalysers.size === 0) return;
+    let changed = false;
+    for (const [peerId, { analyser, data }] of voiceAnalysers) {
+        analyser.getByteFrequencyData(data);
+        const avg = data.reduce((s, v) => s + v, 0) / data.length;
+        const isSpeaking = avg > 8;
+        if (voiceSpeakingStates.get(peerId) !== isSpeaking) {
+            voiceSpeakingStates.set(peerId, isSpeaking);
+            changed = true;
+        }
+    }
+    if (changed) updateSpeakingIndicators();
+}, 100);
+
+// 麥克風按鈕綁定
+document.getElementById('mic-btn')!.onclick = handleMicClick;
 
 // 事件綁定
 document.getElementById('chat-btn')!.onclick = () => setChatOpen(true);

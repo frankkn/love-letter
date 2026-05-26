@@ -21,6 +21,8 @@ export class LoveLetterRoom extends Room<{ state: GameRoomState }> {
     private password: string | null = null;
     private initialGameData: unknown | null = null;
     private latestGameState: unknown | null = null;
+    /** 目前在語音頻道內的 sessionId 集合 */
+    private voiceSessionIds = new Set<string>();
 
     async onCreate(options: CreateRoomOptions = {}) {
         this.maxClients = 4;
@@ -165,6 +167,30 @@ export class LoveLetterRoom extends Room<{ state: GameRoomState }> {
             }
         });
 
+        // ── WebRTC 語音信令 ──────────────────────────────────────────────────
+
+        // 加入語音頻道：回傳現有參與者給新加入者，並廣播給其他人
+        this.onMessage("webrtc_join_voice", client => {
+            const existing = [...this.voiceSessionIds];
+            this.voiceSessionIds.add(client.sessionId);
+            client.send("webrtc_voice_state", { type: 'you_joined', existingParticipants: existing });
+            this.broadcast("webrtc_voice_state", { type: 'peer_joined', sessionId: client.sessionId }, { except: client });
+        });
+
+        // 離開語音頻道
+        this.onMessage("webrtc_leave_voice", client => {
+            this.voiceSessionIds.delete(client.sessionId);
+            this.broadcast("webrtc_voice_state", { type: 'peer_left', sessionId: client.sessionId }, { except: client });
+        });
+
+        // P2P 信令中繼（offer / answer / ice candidate）
+        this.onMessage("webrtc_signal", (client, data: { to: string; type: string; payload: unknown }) => {
+            const target = this.clients.find(c => c.sessionId === data.to);
+            if (target) {
+                target.send("webrtc_signal", { from: client.sessionId, type: data.type, payload: data.payload });
+            }
+        });
+
         // 文字聊天：廣播給房間所有人（包含發送者，保持一致性）
         this.onMessage("chat_message", (client, data: { text: string }) => {
             const player = this.state.players.get(client.sessionId);
@@ -212,6 +238,12 @@ export class LoveLetterRoom extends Room<{ state: GameRoomState }> {
     }
 
     async onLeave(client: Client, consented?: boolean | number) {
+        // WebRTC 不支援重連，斷線時立即清除語音狀態並通知其他人
+        if (this.voiceSessionIds.has(client.sessionId)) {
+            this.voiceSessionIds.delete(client.sessionId);
+            this.broadcast("webrtc_voice_state", { type: 'peer_left', sessionId: client.sessionId }, { except: client });
+        }
+
         const leavingPlayer = this.state.players.get(client.sessionId);
         if (!leavingPlayer) return;
 

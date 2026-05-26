@@ -2401,6 +2401,43 @@ body.game-scene-active #mute-btn-global {
     text-overflow: ellipsis;
   }
 
+  /* ── 麥克風按鈕狀態 ── */
+  #mic-btn.voice-active {
+    color: #2ecc71;
+    border-color: rgba(46, 204, 113, 0.45);
+    background: rgba(46, 204, 113, 0.12);
+  }
+
+  #mic-btn.voice-muted {
+    color: #e74c3c;
+    border-color: rgba(231, 76, 60, 0.45);
+    background: rgba(231, 76, 60, 0.1);
+  }
+
+  /* ── 對手說話指示燈 ── */
+  .voice-speaking-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #2ecc71;
+    margin-left: 4px;
+    vertical-align: middle;
+    opacity: 0;
+    transition: opacity 0.1s;
+    flex-shrink: 0;
+  }
+
+  .opponent-area.voice-speaking .voice-speaking-dot {
+    opacity: 1;
+    animation: voice-pulse 0.7s ease-in-out infinite;
+  }
+
+  @keyframes voice-pulse {
+    0%, 100% { transform: scale(0.85); opacity: 0.6; }
+    50%       { transform: scale(1.2);  opacity: 1;   }
+  }
+
   /* 聊天室未讀 badge */
   .chat-badge {
     display: inline-flex;
