@@ -3628,7 +3628,8 @@ function bindGameRoom(room: Room<unknown, SyncedRoomState>, isReconnect = false)
     room.onMessage<{ from: string; type: 'offer' | 'answer' | 'ice'; payload: unknown }>(
         'webrtc_signal',
         async data => {
-            if (!voiceActive) return;
+            // 未加入語音或 stream 尚未就緒時忽略（避免 race condition）
+            if (!voiceActive || !localAudioStream) return;
             try {
                 if (data.type === 'offer') {
                     const pc = createPeerConnection(data.from);
