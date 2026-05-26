@@ -3668,6 +3668,19 @@ function bindGameRoom(room: Room<unknown, SyncedRoomState>, isReconnect = false)
     room.onLeave(() => {
         if (activeGameRoom !== room) return;
 
+        // 斷線時立刻停止本地音訊（不通知 server，連線已失效）
+        // 這樣瀏覽器麥克風指示燈會立刻熄滅，而不是等到重連或返回主選單
+        if (voiceActive) {
+            for (const peerId of [...peerConnections.keys()]) closePeerConnection(peerId);
+            localAudioStream?.getTracks().forEach(t => t.stop());
+            localAudioStream = null;
+            voiceActive = false;
+            voiceMicMuted = false;
+            voiceAnalysers.clear();
+            voiceSpeakingStates.clear();
+            updateMicButtonState();
+        }
+
         const token = savedReconnectionToken;
         savedReconnectionToken = null;
         const wasInOnlineGame = onlineGameInitialized;
