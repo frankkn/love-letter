@@ -981,8 +981,19 @@ body.game-scene-active #mute-btn-global {
   position: relative;
   z-index: 2;
   box-shadow: 0 0 20px rgba(52, 152, 219, 0.6) !important;
-  border: 2px solid #3498db !important;
+  border: 2px solid transparent !important; /* 用 ::before 繪製，避免被 overflow 截掉 */
   background-color: #1a2a3a !important;
+}
+
+.protected::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  box-sizing: border-box;
+  border: 2px solid #3498db;
+  border-radius: inherit;
+  pointer-events: none;
 }
 
 .protected::after {
