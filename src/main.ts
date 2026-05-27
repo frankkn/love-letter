@@ -11,6 +11,74 @@ import countessImage from './assets/cards/countess.png';
 import princessImage from './assets/cards/princess.png';
 import { GameRoomState } from './server/schema/GameRoomState.js';
 
+// ── Music library: Vite scans these folders at build time ────────────────────
+// Only the Object.keys() (file paths) are used; import functions are never called.
+const _menuGlob     = import.meta.glob('/public/audio/menu/*.mp3');
+const _gameGlob     = import.meta.glob('/public/audio/game/*.mp3');
+const _winnerGlob   = import.meta.glob('/public/audio/winner/*.mp3');
+const _loserGlob    = import.meta.glob('/public/audio/loser/*.mp3');
+const _championGlob = import.meta.glob('/public/audio/champion/*.mp3');
+
+type TrackInfo = { name: string; url: string };
+type MusicSlot = 'menu' | 'game' | 'winner' | 'loser' | 'champion';
+
+const _NO_TRACK: TrackInfo = { name: '(無)', url: '' };
+
+function _buildTrackList(
+    glob: Record<string, unknown>,
+    subfolder: string,
+    fallback: TrackInfo
+): TrackInfo[] {
+    const base = import.meta.env.BASE_URL; // '/' dev  '/love-letter/' prod
+    const tracks = Object.keys(glob)
+        .map(path => {
+            const filename = path.split('/').pop()!;
+            const name = filename.replace(/\.mp3$/i, '').replace(/[-_]/g, ' ');
+            const url = `${base}audio/${subfolder}/${encodeURIComponent(filename)}`;
+            return { name, url };
+        })
+        .sort((a, b) => a.name.localeCompare(b.name));
+    return tracks.length > 0 ? tracks : [fallback];
+}
+
+// Resolved once at module load; re-evaluated by Vite HMR when files change.
+const AUDIO_LIBRARY: Record<MusicSlot, TrackInfo[]> = {
+    menu:     _buildTrackList(_menuGlob,     'menu',     _NO_TRACK),
+    game:     _buildTrackList(_gameGlob,     'game',     _NO_TRACK),
+    winner:   _buildTrackList(_winnerGlob,   'winner',   _NO_TRACK),
+    loser:    _buildTrackList(_loserGlob,    'loser',    _NO_TRACK),
+    champion: _buildTrackList(_championGlob, 'champion', _NO_TRACK),
+};
+
+// Per-slot selected track index; persisted to localStorage.
+const MUSIC_SETTINGS_KEY = 'loveLetter_musicSettings';
+let musicSelections: Record<MusicSlot, number> = { menu: 0, game: 0, winner: 0, loser: 0, champion: 0 };
+// Working copy while the settings panel is open (discarded on "返回").
+let pendingMusicSelections: Record<MusicSlot, number> = { ...musicSelections };
+
+function loadMusicSettings() {
+    try {
+        const raw = localStorage.getItem(MUSIC_SETTINGS_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as Partial<Record<MusicSlot, number>>;
+        for (const slot of Object.keys(AUDIO_LIBRARY) as MusicSlot[]) {
+            const idx = parsed[slot] ?? 0;
+            musicSelections[slot] = Math.max(0, Math.min(idx, AUDIO_LIBRARY[slot].length - 1));
+        }
+    } catch { /* ignore malformed data */ }
+}
+
+function saveMusicSettings() {
+    localStorage.setItem(MUSIC_SETTINGS_KEY, JSON.stringify(musicSelections));
+}
+
+function getSelectedTrack(slot: MusicSlot): TrackInfo {
+    const tracks = AUDIO_LIBRARY[slot];
+    return tracks[Math.max(0, Math.min(musicSelections[slot], tracks.length - 1))] ?? _NO_TRACK;
+}
+
+loadMusicSettings();
+
 // 1. 定義型別
 export enum CardType {
     Guard = 1,
@@ -329,6 +397,10 @@ bgmAudio.volume = 0.45;
 const sfxAudio = new Audio();
 sfxAudio.volume = 0.8;
 
+const previewAudio = new Audio();
+previewAudio.loop = true;
+previewAudio.volume = 0.45;
+
 let isMuted = localStorage.getItem('loveLetter_muted') === 'true';
 let currentBGMFile = '';
 let audioUnlocked = false;
@@ -343,6 +415,7 @@ function getAudioSrc(filename: string): string {
 function applyMuteState() {
     bgmAudio.muted = isMuted;
     sfxAudio.muted = isMuted;
+    previewAudio.muted = isMuted;
     // 遊戲內喇叭：用 CSS class 切換 SVG 音波 / X
     const btn = document.getElementById('mute-btn') as HTMLButtonElement | null;
     if (btn) btn.classList.toggle('muted', isMuted);
@@ -368,22 +441,23 @@ function unlockAudio() {
     }
 }
 
-function playBGM(filename: string) {
-    if (!audioUnlocked) { pendingBGMFile = filename; return; }
-    if (currentBGMFile === filename) return; // already committed to this track
+function playBGM(filenameOrUrl: string) {
+    if (!audioUnlocked) { pendingBGMFile = filenameOrUrl; return; }
+    if (currentBGMFile === filenameOrUrl) return; // already committed to this track
     bgmAudio.loop = true;
-    currentBGMFile = filename;
+    currentBGMFile = filenameOrUrl;
     bgmPausedForSFX = false;
-    bgmAudio.src = getAudioSrc(filename);
+    // Full paths/URLs contain '/'; plain filenames (legacy calls) do not.
+    bgmAudio.src = filenameOrUrl.includes('/') ? filenameOrUrl : getAudioSrc(filenameOrUrl);
     bgmAudio.currentTime = 0;
     bgmAudio.play().catch(() => {
         audioUnlocked = false;
-        pendingBGMFile = filename;
+        pendingBGMFile = filenameOrUrl;
         currentBGMFile = '';
     });
 }
 
-function playSFX(filename: string) {
+function playSFX(filenameOrUrl: string) {
     if (!audioUnlocked) return;
     // Pause BGM so it doesn't overlap with the SFX
     if (!bgmAudio.paused) {
@@ -396,20 +470,25 @@ function playSFX(filename: string) {
             bgmAudio.play().catch(() => {});
         }
     };
-    sfxAudio.src = getAudioSrc(filename);
+    sfxAudio.src = filenameOrUrl.includes('/') ? filenameOrUrl : getAudioSrc(filenameOrUrl);
     sfxAudio.currentTime = 0;
     sfxAudio.onended = resumeBGM;
     sfxAudio.play().catch(resumeBGM);
 }
 
 function playChampionTheme() {
-    // Champion theme replaces BGM entirely — don't resume BGM afterwards
+    // Champion theme takes over BGM; resume game BGM when it ends.
+    const track = getSelectedTrack('champion');
+    if (!track.url) return;
     bgmPausedForSFX = false;
     bgmAudio.pause();
     currentBGMFile = '';
-    sfxAudio.src = getAudioSrc('Love Conquers All.mp3');
+    sfxAudio.src = track.url;
     sfxAudio.currentTime = 0;
-    sfxAudio.onended = null;
+    sfxAudio.onended = () => {
+        const gameTrack = getSelectedTrack('game');
+        if (gameTrack.url) playBGM(gameTrack.url);
+    };
     sfxAudio.play().catch(() => {});
 }
 
@@ -1981,7 +2060,10 @@ function eliminate(
         endGame(survivors[0], t('reason.lastSurvivor'));
     } else {
         // Only play the elimination SFX for the local human player.
-        if (playerId === localPlayerId) playSFX('Farewell, Chevalier.mp3');
+        if (playerId === localPlayerId) {
+            const loserTrack = getSelectedTrack('loser');
+            if (loserTrack.url) playSFX(loserTrack.url);
+        }
         // Queue a notification so non-host clients learn WHY they were knocked out.
         // The sender guard (senderPlayerId !== targetPlayerId when receiving) prevents
         // the acting client from showing their own notification on the echo.
@@ -2117,8 +2199,14 @@ function showEndGameModal() {
     if (!state.winner) return;
 
     hasShownEndGameModal = true;
-    // Only play the victory SFX when the local human player wins the round.
-    if (state.winner?.id === localPlayerId) playSFX("The Victor's Token.mp3");
+    // Play winner or loser SFX for the local human player.
+    if (state.winner?.id === localPlayerId) {
+        const track = getSelectedTrack('winner');
+        if (track.url) playSFX(track.url);
+    } else {
+        const track = getSelectedTrack('loser');
+        if (track.url) playSFX(track.url);
+    }
     showResultBtn.style.display = 'block';
 
     const champion = getLeagueChampion();
@@ -3247,7 +3335,8 @@ function applyOnlineGameState(data: OnlineGameStateData, isInitialLoad = false) 
         // this path. The prevLocalAlive guard ensures we don't double-play when
         // the host receives its own broadcast back.
         if (prevLocalAlive && !nextLocalAlive) {
-            playSFX('Farewell, Chevalier.mp3');
+            const loserTrack = getSelectedTrack('loser');
+            if (loserTrack.url) playSFX(loserTrack.url);
         }
     } finally {
         isApplyingOnlineState = false;
@@ -4104,11 +4193,13 @@ function showScene(sceneId: 'main-menu' | 'mode-select' | 'bot-count-select' | '
     // so we remove the inline style and let CSS take over; all other scenes use flex.
     document.getElementById(sceneId)!.style.display = sceneId === 'game-scene' ? '' : 'flex';
 
-    // BGM switching
+    // BGM switching — use user-selected tracks with built-in defaults as fallback
     if (sceneId === 'game-scene') {
-        playBGM('A Game of Hearts.mp3');
+        const t = getSelectedTrack('game');
+        if (t.url) playBGM(t.url);
     } else {
-        playBGM('Royal Intrigue.mp3');
+        const t = getSelectedTrack('menu');
+        if (t.url) playBGM(t.url);
     }
 }
 
@@ -4403,6 +4494,80 @@ document.getElementById('show-rules-btn')!.onclick = () => {
 };
 document.getElementById('lang-btn')!.onclick = showLanguageModal;
 
+// ── 遊戲設置 ────────────────────────────────────────────────────────────────
+function stopPreview() {
+    previewAudio.pause();
+    previewAudio.src = '';
+}
+
+function playPreview(url: string) {
+    previewAudio.pause();
+    previewAudio.muted = isMuted;
+    previewAudio.src = url;
+    previewAudio.currentTime = 0;
+    previewAudio.play().catch(() => {});
+}
+
+function openSettingsModal() {
+    pendingMusicSelections = { ...musicSelections };
+    updateSettingsDisplay();
+    // 停掉 BGM，讓試聽音樂獨佔
+    bgmAudio.pause();
+    bgmPausedForSFX = false;
+    document.getElementById('settings-overlay')!.style.display = 'flex';
+}
+
+function closeSettingsModal() {
+    stopPreview();
+    document.getElementById('settings-overlay')!.style.display = 'none';
+}
+
+function updateSettingsDisplay() {
+    for (const slot of Object.keys(AUDIO_LIBRARY) as MusicSlot[]) {
+        const tracks = AUDIO_LIBRARY[slot];
+        const idx = pendingMusicSelections[slot];
+        const track = tracks[idx] ?? _NO_TRACK;
+        const valueEl = document.getElementById(`settings-value-${slot}`);
+        if (valueEl) valueEl.textContent = track.name;
+        const leftArrow  = document.querySelector(`.settings-arrow[data-slot="${slot}"][data-dir="-1"]`) as HTMLButtonElement | null;
+        const rightArrow = document.querySelector(`.settings-arrow[data-slot="${slot}"][data-dir="1"]`)  as HTMLButtonElement | null;
+        if (leftArrow)  leftArrow.disabled  = idx <= 0;
+        if (rightArrow) rightArrow.disabled = idx >= tracks.length - 1;
+    }
+}
+
+document.getElementById('settings-btn')!.onclick = openSettingsModal;
+
+document.getElementById('settings-back-btn')!.onclick = () => {
+    closeSettingsModal();
+    // 放棄變更，恢復原本已套用的 menu 音樂
+    currentBGMFile = '';
+    const menuTrack = AUDIO_LIBRARY['menu'][musicSelections['menu']] ?? _NO_TRACK;
+    if (menuTrack.url) playBGM(menuTrack.url);
+};
+
+document.getElementById('settings-confirm-btn')!.onclick = () => {
+    musicSelections = { ...pendingMusicSelections };
+    saveMusicSettings();
+    closeSettingsModal();
+    // 套用新選的 menu 音樂
+    currentBGMFile = '';
+    const menuTrack = getSelectedTrack('menu');
+    if (menuTrack.url) playBGM(menuTrack.url);
+};
+
+document.querySelectorAll('.settings-arrow').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        const target = e.currentTarget as HTMLElement;
+        const slot = target.dataset.slot as MusicSlot;
+        const dir = parseInt(target.dataset.dir!);
+        const tracks = AUDIO_LIBRARY[slot];
+        pendingMusicSelections[slot] = Math.max(0, Math.min(pendingMusicSelections[slot] + dir, tracks.length - 1));
+        updateSettingsDisplay();
+        const track = tracks[pendingMusicSelections[slot]] ?? _NO_TRACK;
+        if (track.url) playPreview(track.url);
+    });
+});
 
 document.querySelectorAll('.count-btn').forEach(btn => {
     (btn as HTMLElement).onclick = () => {

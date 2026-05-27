@@ -22,6 +22,17 @@ const zh: TransMap = {
     'menu.selectBots':  '請選擇電腦對手人數',
     'menu.back':        '返回',
 
+    // Settings
+    'settings.title':        '遊戲設置',
+    'settings.menuMusic':    '主選單',
+    'settings.gameMusic':    '遊戲中',
+    'settings.winnerMusic':  '當局勝利',
+    'settings.loserMusic':   '當局失敗',
+    'settings.championMusic':'總冠軍',
+    'settings.confirm':      '確認',
+    'settings.back':         '返回',
+    'settings.noMusic':      '(無)',
+
     // Lobby
     'lobby.title':    '多人連線大廳',
     'lobby.desc':     '建立或加入一個 2-4 人的情書房間。',
@@ -344,6 +355,17 @@ const en: TransMap = {
     'menu.localMode':   'vs. Computer (Solo)',
     'menu.selectBots':  'Number of Opponents',
     'menu.back':        'Back',
+
+    // Settings
+    'settings.title':        'Game Settings',
+    'settings.menuMusic':    'Main Menu',
+    'settings.gameMusic':    'In-Game',
+    'settings.winnerMusic':  'Round Victory',
+    'settings.loserMusic':   'Round Defeat',
+    'settings.championMusic':'Champion',
+    'settings.confirm':      'Confirm',
+    'settings.back':         'Back',
+    'settings.noMusic':      '(None)',
 
     // Lobby
     'lobby.title':    'Online Lobby',
