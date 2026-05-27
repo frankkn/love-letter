@@ -109,10 +109,13 @@ export interface CardActionHint {
     variant?: 'default' | 'danger' | 'tie';
 }
 
+export type BotDifficulty = 'easy' | 'medium' | 'hard';
+
 export interface Player {
     id: number;           // 0 為人類玩家，1~3 為電腦
     name: string;         // "玩家", "電腦 A", "電腦 B", "電腦 C"
     isBot: boolean;       // 是否為電腦
+    difficulty?: BotDifficulty; // 僅 bot 使用
     coins: number;        // 聯賽硬幣數，先取得 4 枚者獲勝
     hand: Card[];         // 手牌 (1~2張)
     isProtected: boolean; // 侍女保護狀態
@@ -285,6 +288,8 @@ let resolvingForcedEffect: PendingForcedEffect | null = null;
 let pendingBaronDuel: PendingBaronDuel | null = null;
 let activeBaronDuelModalKey: string | null = null;
 let recentBaronGuardClue: BaronGuardClue | null = null;
+let pendingBotCount = 1;
+let botDifficulties: BotDifficulty[] = ['medium', 'medium', 'medium'];
 let pendingKingExchange: PendingKingExchange | null = null;
 let activeKingExchangeModalKey: string | null = null;
 let isHandlingPendingForcedEffect = false;
@@ -527,6 +532,7 @@ function resetClientState() {
 const mainMenuEl = document.getElementById('main-menu')!;
 const modeSelectEl = document.getElementById('mode-select')!;
 const botCountSelectEl = document.getElementById('bot-count-select')!;
+const botDifficultySelectEl = document.getElementById('bot-difficulty-select')!;
 const lobbySceneEl = document.getElementById('lobby-scene')!;
 const roomWaitSceneEl = document.getElementById('room-wait-scene')!;
 const gameSceneEl = document.getElementById('game-scene')!;
@@ -1031,7 +1037,9 @@ function createAIExcludedGuesses(players: Player[]): Record<number, Record<numbe
 }
 
 function rememberKnownCard(observerId: number, targetId: number, cardType: CardType) {
-    if (!state.players[observerId]?.isBot) return;
+    const observer = state.players[observerId];
+    if (!observer?.isBot) return;
+    if (observer.difficulty === 'easy') return; // Easy bots have no memory
     state.aiMemory[observerId] ??= {};
     state.aiMemory[observerId][targetId] = cardType;
 }
@@ -1467,16 +1475,19 @@ async function applyEffect(playerId: number, card: Card, shouldEndTurn = true, r
                     botTargets = opponentTargets;
                 }
             } else if (card.type === CardType.Baron) {
-                const safeTargets = getSafeBaronTargets(player, card, botTargets);
-                if (safeTargets.length > 0) {
-                    botTargets = safeTargets;
+                // Medium/Hard: avoid targets we know we'll lose to
+                if (player.difficulty !== 'easy') {
+                    const safeTargets = getSafeBaronTargets(player, card, botTargets);
+                    if (safeTargets.length > 0) {
+                        botTargets = safeTargets;
+                    }
                 }
             }
 
-            const knownGuardTarget = card.type === CardType.Guard
+            const knownGuardTarget = card.type === CardType.Guard && player.difficulty !== 'easy'
                 ? getKnownGuardTarget(playerId, botTargets)
                 : null;
-            const inferredGuardTarget = card.type === CardType.Guard
+            const inferredGuardTarget = card.type === CardType.Guard && player.difficulty === 'hard'
                 ? getBaronGuardClueTarget(playerId, botTargets)
                 : null;
             const target = knownGuardTarget ?? inferredGuardTarget ?? botTargets[Math.floor(Math.random() * botTargets.length)];
@@ -1928,33 +1939,44 @@ async function resolveTargetEffect(actorId: number, targetId: number, card: Card
 }
 
 function getAISmartGuess(botId: number, targetId: number): number {
-    const rememberedType = state.aiMemory[botId]?.[targetId];
-    if (rememberedType) {
-        const targetStillHasRememberedCard = state.players[targetId].hand.some(card => card.type === rememberedType);
-        if (!targetStillHasRememberedCard) {
-            delete state.aiMemory[botId][targetId];
-        } else if (rememberedType !== CardType.Guard) {
-            return rememberedType;
+    const difficulty = state.players[botId]?.difficulty ?? 'hard';
+
+    // Medium/Hard: use memory to guess the known card directly
+    if (difficulty !== 'easy') {
+        const rememberedType = state.aiMemory[botId]?.[targetId];
+        if (rememberedType) {
+            const targetStillHasRememberedCard = state.players[targetId].hand.some(card => card.type === rememberedType);
+            if (!targetStillHasRememberedCard) {
+                delete state.aiMemory[botId][targetId];
+            } else if (rememberedType !== CardType.Guard) {
+                return rememberedType;
+            }
         }
     }
 
+    // All difficulties: count remaining cards from discards + own hand
     const knownCounts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0 };
     state.players.forEach(p => {
         p.discardPile.forEach(c => knownCounts[c.value]++);
     });
     state.players[botId].hand.forEach(c => knownCounts[c.value]++);
 
-    const excludedGuesses = getExcludedGuardGuesses(botId, targetId);
-    const baronClue = getActiveBaronGuardClue(botId, targetId);
-    if (baronClue) {
-        const inferredGuesses: number[] = [];
-        for (let i = Math.max(CardType.Priest, baronClue.loserCardType + 1); i <= CardType.Princess; i++) {
-            if (!excludedGuesses.has(i as CardType) && knownCounts[i] < CARD_DEFINITIONS[i as CardType].count) {
-                inferredGuesses.push(i);
+    // Medium/Hard: avoid repeating failed guesses
+    const excludedGuesses = difficulty !== 'easy' ? getExcludedGuardGuesses(botId, targetId) : new Set<CardType>();
+
+    // Hard only: use baron clue to narrow the range
+    if (difficulty === 'hard') {
+        const baronClue = getActiveBaronGuardClue(botId, targetId);
+        if (baronClue) {
+            const inferredGuesses: number[] = [];
+            for (let i = Math.max(CardType.Priest, baronClue.loserCardType + 1); i <= CardType.Princess; i++) {
+                if (!excludedGuesses.has(i as CardType) && knownCounts[i] < CARD_DEFINITIONS[i as CardType].count) {
+                    inferredGuesses.push(i);
+                }
             }
-        }
-        if (inferredGuesses.length > 0) {
-            return inferredGuesses[Math.floor(Math.random() * inferredGuesses.length)];
+            if (inferredGuesses.length > 0) {
+                return inferredGuesses[Math.floor(Math.random() * inferredGuesses.length)];
+            }
         }
     }
 
@@ -2264,13 +2286,20 @@ function showBattleLogModal() {
 }
 
 function getAICardPlayWeight(bot: Player, card: Card): number {
+    const difficulty = bot.difficulty ?? 'hard';
+    // Easy: flat random weights (still respect Princess avoidance)
+    if (difficulty === 'easy') {
+        return card.type === CardType.Princess ? 0.1 : 10;
+    }
+
     const remainingCard = bot.hand.find(handCard => handCard.id !== card.id);
     let weight = 10;
 
     switch (card.type) {
         case CardType.Guard:
             weight = 28;
-            if (getBaronGuardClueTarget(bot.id, state.players.filter(player => (
+            // Hard only: extra boost when baron clue gives a strong lead
+            if (difficulty === 'hard' && getBaronGuardClueTarget(bot.id, state.players.filter(player => (
                 player.id !== bot.id &&
                 player.isAlive &&
                 !player.isProtected
@@ -2285,6 +2314,7 @@ function getAICardPlayWeight(bot: Player, card: Card): number {
             weight = 8;
             if (remainingCard) {
                 const legalTargets = getBaronLegalTargets(bot);
+                // Medium/Hard: avoid known losing matchups
                 if (legalTargets.some(target => isKnownBaronLoss(bot, card, target))) {
                     weight = 0;
                     break;
@@ -2315,18 +2345,23 @@ function getAICardPlayWeight(bot: Player, card: Card): number {
 }
 
 function chooseAICardToPlay(bot: Player): Card {
-    const guard = bot.hand.find(card => card.type === CardType.Guard);
-    if (guard) {
-        const guardTargets = state.players.filter(player => (
-            player.id !== bot.id &&
-            player.isAlive &&
-            !player.isProtected
-        ));
-        if (getKnownGuardTarget(bot.id, guardTargets)) return guard;
-    }
+    const difficulty = bot.difficulty ?? 'hard';
 
-    const baron = bot.hand.find(card => card.type === CardType.Baron);
-    if (guard && baron) return guard;
+    // Medium/Hard: if we know an opponent's card, prioritise guard immediately
+    if (difficulty !== 'easy') {
+        const guard = bot.hand.find(card => card.type === CardType.Guard);
+        if (guard) {
+            const guardTargets = state.players.filter(player => (
+                player.id !== bot.id &&
+                player.isAlive &&
+                !player.isProtected
+            ));
+            if (getKnownGuardTarget(bot.id, guardTargets)) return guard;
+        }
+
+        const baron = bot.hand.find(card => card.type === CardType.Baron);
+        if (guard && baron) return guard;
+    }
 
     let playable = bot.hand.filter(card => card.type !== CardType.Princess);
     if (playable.length === 0) playable = bot.hand;
@@ -4183,8 +4218,8 @@ function setMobileStatsOpen(isOpen: boolean) {
     mobileStatsToggleBtn.setAttribute('aria-expanded', String(isOpen));
 }
 
-function showScene(sceneId: 'main-menu' | 'mode-select' | 'bot-count-select' | 'lobby-scene' | 'room-wait-scene' | 'game-scene') {
-    [mainMenuEl, modeSelectEl, botCountSelectEl, lobbySceneEl, roomWaitSceneEl, gameSceneEl].forEach(el => el.style.display = 'none');
+function showScene(sceneId: 'main-menu' | 'mode-select' | 'bot-count-select' | 'bot-difficulty-select' | 'lobby-scene' | 'room-wait-scene' | 'game-scene') {
+    [mainMenuEl, modeSelectEl, botCountSelectEl, botDifficultySelectEl, lobbySceneEl, roomWaitSceneEl, gameSceneEl].forEach(el => el.style.display = 'none');
     document.body.classList.toggle('game-scene-active', sceneId === 'game-scene');
     if (sceneId !== 'game-scene') {
         setMobileStatsOpen(false);
@@ -4597,15 +4632,68 @@ document.querySelectorAll('.settings-arrow').forEach(btn => {
     });
 });
 
+const DIFFICULTY_LEVELS: BotDifficulty[] = ['easy', 'medium', 'hard'];
+const BOT_LABELS = ['A', 'B', 'C'];
+
+function showDifficultySelect(botCount: number) {
+    pendingBotCount = botCount;
+    const rowsEl = document.getElementById('difficulty-rows')!;
+    rowsEl.innerHTML = '';
+    for (let i = 0; i < botCount; i++) {
+        const row = document.createElement('div');
+        row.className = 'settings-row';
+        row.innerHTML = `
+            <span class="settings-label">${t('player.bot' + BOT_LABELS[i])}</span>
+            <div class="settings-selector">
+                <button class="diff-arrow" data-bot="${i}" data-dir="-1">◀</button>
+                <span class="settings-value" id="diff-value-${i}"></span>
+                <button class="diff-arrow" data-bot="${i}" data-dir="1">▶</button>
+            </div>`;
+        rowsEl.appendChild(row);
+    }
+    updateDifficultyDisplay();
+    // Attach arrow listeners (fresh each time)
+    rowsEl.querySelectorAll('.diff-arrow').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const target = e.currentTarget as HTMLElement;
+            const botIdx = parseInt(target.dataset.bot!);
+            const dir = parseInt(target.dataset.dir!);
+            const cur = DIFFICULTY_LEVELS.indexOf(botDifficulties[botIdx]);
+            botDifficulties[botIdx] = DIFFICULTY_LEVELS[Math.max(0, Math.min(cur + dir, DIFFICULTY_LEVELS.length - 1))];
+            updateDifficultyDisplay();
+        });
+    });
+    showScene('bot-difficulty-select');
+}
+
+function updateDifficultyDisplay() {
+    for (let i = 0; i < pendingBotCount; i++) {
+        const valueEl = document.getElementById(`diff-value-${i}`);
+        if (valueEl) valueEl.textContent = t(`difficulty.${botDifficulties[i]}`);
+        const leftBtn  = document.querySelector(`.diff-arrow[data-bot="${i}"][data-dir="-1"]`) as HTMLButtonElement | null;
+        const rightBtn = document.querySelector(`.diff-arrow[data-bot="${i}"][data-dir="1"]`)  as HTMLButtonElement | null;
+        const curIdx = DIFFICULTY_LEVELS.indexOf(botDifficulties[i]);
+        if (leftBtn)  leftBtn.disabled  = curIdx <= 0;
+        if (rightBtn) rightBtn.disabled = curIdx >= DIFFICULTY_LEVELS.length - 1;
+    }
+}
+
+document.getElementById('difficulty-start-btn')!.onclick = () => {
+    initGame(pendingBotCount, botDifficulties.slice(0, pendingBotCount));
+};
+document.getElementById('difficulty-back-btn')!.onclick = () => {
+    showScene('bot-count-select');
+};
+
 document.querySelectorAll('.count-btn').forEach(btn => {
     (btn as HTMLElement).onclick = () => {
         const botCount = parseInt((btn as HTMLElement).dataset.count!);
-        initGame(botCount);
+        showDifficultySelect(botCount);
     };
 });
 
 // 10. 初始化
-function initGame(botCount: number) {
+function initGame(botCount: number, difficulties: BotDifficulty[] = []) {
     endGameReason = '';
     localPlayerId = 0;
     onlineGameInitialized = false;
@@ -4637,6 +4725,7 @@ function initGame(botCount: number) {
             id: i + 1,
             name: botNames[i],
             isBot: true,
+            difficulty: difficulties[i] ?? 'medium',
             coins: 0,
             hand: [deck.pop()!],
             isProtected: false,

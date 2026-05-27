@@ -22,6 +22,12 @@ const zh: TransMap = {
     'menu.selectBots':  '請選擇電腦對手人數',
     'menu.back':        '返回',
 
+    // Difficulty
+    'difficulty.title':  '難度設置',
+    'difficulty.easy':   '簡單',
+    'difficulty.medium': '中等',
+    'difficulty.hard':   '困難',
+
     // Settings
     'settings.title':            '遊戲設置',
     'settings.musicSettings':    '音樂設置',
@@ -357,6 +363,12 @@ const en: TransMap = {
     'menu.localMode':   'vs. Computer (Solo)',
     'menu.selectBots':  'Number of Opponents',
     'menu.back':        'Back',
+
+    // Difficulty
+    'difficulty.title':  'Difficulty',
+    'difficulty.easy':   'Easy',
+    'difficulty.medium': 'Medium',
+    'difficulty.hard':   'Hard',
 
     // Settings
     'settings.title':            'Game Settings',
