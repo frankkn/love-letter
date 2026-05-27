@@ -4492,8 +4492,6 @@ document.getElementById('show-rules-btn')!.onclick = () => {
     showModal(t('menu.gameRules'), createRulesBodyHTML(),
         `<button class="modal-confirm-btn" onclick="this.closest('.modal-overlay').style.display='none'">${t('btn.close')}</button>`);
 };
-document.getElementById('lang-btn')!.onclick = showLanguageModal;
-
 // ── 遊戲設置 ────────────────────────────────────────────────────────────────
 function stopPreview() {
     previewAudio.pause();
@@ -4508,18 +4506,35 @@ function playPreview(url: string) {
     previewAudio.play().catch(() => {});
 }
 
+function showSettingsView(view: 'main' | 'music') {
+    document.getElementById('settings-main-view')!.style.display  = view === 'main'  ? '' : 'none';
+    document.getElementById('settings-music-view')!.style.display = view === 'music' ? '' : 'none';
+    const titleEl = document.getElementById('settings-panel-title')!;
+    titleEl.dataset.i18n = view === 'music' ? 'settings.musicSettings' : 'settings.title';
+    titleEl.textContent  = t(titleEl.dataset.i18n);
+}
+
 function openSettingsModal() {
-    pendingMusicSelections = { ...musicSelections };
-    updateSettingsDisplay();
-    // 停掉 BGM，讓試聽音樂獨佔
-    bgmAudio.pause();
-    bgmPausedForSFX = false;
+    showSettingsView('main');
     document.getElementById('settings-overlay')!.style.display = 'flex';
 }
 
 function closeSettingsModal() {
     stopPreview();
     document.getElementById('settings-overlay')!.style.display = 'none';
+    // 恢復原本已套用的 menu 音樂
+    currentBGMFile = '';
+    const menuTrack = AUDIO_LIBRARY['menu'][musicSelections['menu']] ?? _NO_TRACK;
+    if (menuTrack.url) playBGM(menuTrack.url);
+}
+
+function openMusicSettings() {
+    pendingMusicSelections = { ...musicSelections };
+    updateSettingsDisplay();
+    // 停掉 BGM，讓試聽音樂獨佔
+    bgmAudio.pause();
+    bgmPausedForSFX = false;
+    showSettingsView('music');
 }
 
 function updateSettingsDisplay() {
@@ -4536,24 +4551,37 @@ function updateSettingsDisplay() {
     }
 }
 
-document.getElementById('settings-btn')!.onclick = openSettingsModal;
+// 主選單按鈕
+document.getElementById('settings-btn')!.onclick   = openSettingsModal;
+document.getElementById('settings-close-btn')!.onclick = closeSettingsModal;
 
-document.getElementById('settings-back-btn')!.onclick = () => {
+// 主選單 → 音樂設置
+document.getElementById('settings-music-btn')!.onclick = openMusicSettings;
+
+// 主選單 → 語言設置
+document.getElementById('settings-lang-btn')!.onclick = () => {
     closeSettingsModal();
-    // 放棄變更，恢復原本已套用的 menu 音樂
+    showLanguageModal();
+};
+
+// 音樂設置：返回（回主選單，放棄變更，恢復BGM）
+document.getElementById('settings-back-btn')!.onclick = () => {
+    stopPreview();
     currentBGMFile = '';
     const menuTrack = AUDIO_LIBRARY['menu'][musicSelections['menu']] ?? _NO_TRACK;
     if (menuTrack.url) playBGM(menuTrack.url);
+    showSettingsView('main');
 };
 
+// 音樂設置：確認
 document.getElementById('settings-confirm-btn')!.onclick = () => {
     musicSelections = { ...pendingMusicSelections };
     saveMusicSettings();
-    closeSettingsModal();
-    // 套用新選的 menu 音樂
+    stopPreview();
     currentBGMFile = '';
     const menuTrack = getSelectedTrack('menu');
     if (menuTrack.url) playBGM(menuTrack.url);
+    showSettingsView('main');
 };
 
 document.querySelectorAll('.settings-arrow').forEach(btn => {

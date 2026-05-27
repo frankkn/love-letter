@@ -23,15 +23,17 @@ const zh: TransMap = {
     'menu.back':        '返回',
 
     // Settings
-    'settings.title':        '遊戲設置',
-    'settings.menuMusic':    '主選單',
-    'settings.gameMusic':    '遊戲中',
-    'settings.winnerMusic':  '當局勝利',
-    'settings.loserMusic':   '當局失敗',
-    'settings.championMusic':'總冠軍',
-    'settings.confirm':      '確認',
-    'settings.back':         '返回',
-    'settings.noMusic':      '(無)',
+    'settings.title':            '遊戲設置',
+    'settings.musicSettings':    '音樂設置',
+    'settings.languageSettings': '語言設置',
+    'settings.menuMusic':        '主選單',
+    'settings.gameMusic':        '遊戲中',
+    'settings.winnerMusic':      '當局勝利',
+    'settings.loserMusic':       '當局失敗',
+    'settings.championMusic':    '總冠軍',
+    'settings.confirm':          '確認',
+    'settings.back':             '返回',
+    'settings.noMusic':          '(無)',
 
     // Lobby
     'lobby.title':    '多人連線大廳',
@@ -357,15 +359,17 @@ const en: TransMap = {
     'menu.back':        'Back',
 
     // Settings
-    'settings.title':        'Game Settings',
-    'settings.menuMusic':    'Main Menu',
-    'settings.gameMusic':    'In-Game',
-    'settings.winnerMusic':  'Round Victory',
-    'settings.loserMusic':   'Round Defeat',
-    'settings.championMusic':'Champion',
-    'settings.confirm':      'Confirm',
-    'settings.back':         'Back',
-    'settings.noMusic':      '(None)',
+    'settings.title':            'Game Settings',
+    'settings.musicSettings':    'Music Settings',
+    'settings.languageSettings': 'Language',
+    'settings.menuMusic':        'Main Menu',
+    'settings.gameMusic':        'In-Game',
+    'settings.winnerMusic':      'Round Victory',
+    'settings.loserMusic':       'Round Defeat',
+    'settings.championMusic':    'Champion',
+    'settings.confirm':          'Confirm',
+    'settings.back':             'Back',
+    'settings.noMusic':          '(None)',
 
     // Lobby
     'lobby.title':    'Online Lobby',
