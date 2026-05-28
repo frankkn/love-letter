@@ -69,9 +69,20 @@ const AUDIO_LIBRARY: Record<MusicSlot, TrackInfo[]> = {
 
 // Per-slot selected track index; persisted to localStorage.
 const MUSIC_SETTINGS_KEY = 'loveLetter_musicSettings';
+const VOLUME_SETTINGS_KEY = 'loveLetter_audioVolume';
+const DEFAULT_AUDIO_VOLUME_PERCENT = 60;
+const BGM_BASE_VOLUME = 0.45;
+const SFX_BASE_VOLUME = 0.8;
+const PREVIEW_BASE_VOLUME = 0.45;
 let musicSelections: Record<MusicSlot, number> = { menu: 0, game: 0, winner: 0, loser: 0, champion: 0 };
+let audioVolumePercent = DEFAULT_AUDIO_VOLUME_PERCENT;
 // Working copy while the settings panel is open (discarded on "返回").
 let pendingMusicSelections: Record<MusicSlot, number> = { ...musicSelections };
+let pendingAudioVolumePercent = audioVolumePercent;
+
+function clampAudioVolume(value: number): number {
+    return Math.max(0, Math.min(100, Math.round(value)));
+}
 
 function loadMusicSettings() {
     try {
@@ -83,10 +94,17 @@ function loadMusicSettings() {
             musicSelections[slot] = Math.max(0, Math.min(idx, AUDIO_LIBRARY[slot].length - 1));
         }
     } catch { /* ignore malformed data */ }
+
+    const storedVolume = Number(localStorage.getItem(VOLUME_SETTINGS_KEY));
+    if (Number.isFinite(storedVolume)) {
+        audioVolumePercent = clampAudioVolume(storedVolume);
+        pendingAudioVolumePercent = audioVolumePercent;
+    }
 }
 
 function saveMusicSettings() {
     localStorage.setItem(MUSIC_SETTINGS_KEY, JSON.stringify(musicSelections));
+    localStorage.setItem(VOLUME_SETTINGS_KEY, String(audioVolumePercent));
 }
 
 function getSelectedTrack(slot: MusicSlot): TrackInfo {
@@ -414,14 +432,14 @@ function resetLocalClientState() {
 // ─────────────────────────────────────────────────────────────────────────────
 const bgmAudio = new Audio();
 bgmAudio.loop = true;
-bgmAudio.volume = 0.45;
+bgmAudio.volume = BGM_BASE_VOLUME;
 
 const sfxAudio = new Audio();
-sfxAudio.volume = 0.8;
+sfxAudio.volume = SFX_BASE_VOLUME;
 
 const previewAudio = new Audio();
 previewAudio.loop = true;
-previewAudio.volume = 0.45;
+previewAudio.volume = PREVIEW_BASE_VOLUME;
 
 let isMuted = localStorage.getItem('loveLetter_muted') === 'true';
 let currentBGMFile = '';
@@ -432,6 +450,15 @@ const audioPreloadQueue: string[] = [];
 let isAudioPreloadQueueRunning = false;
 // Tracks whether WE paused BGM to make way for an SFX (so we can resume it after)
 let bgmPausedForSFX = false;
+
+function applyAudioVolume(volumePercent = audioVolumePercent) {
+    const ratio = clampAudioVolume(volumePercent) / 100;
+    bgmAudio.volume = BGM_BASE_VOLUME * ratio;
+    sfxAudio.volume = SFX_BASE_VOLUME * ratio;
+    previewAudio.volume = PREVIEW_BASE_VOLUME * ratio;
+}
+
+applyAudioVolume();
 
 function getAudioSrc(filename: string): string {
     return `${import.meta.env.BASE_URL}audio/${encodeURIComponent(filename)}`;
@@ -4633,6 +4660,8 @@ function closeSettingsModal() {
 
 function openMusicSettings() {
     pendingMusicSelections = { ...musicSelections };
+    pendingAudioVolumePercent = audioVolumePercent;
+    applyAudioVolume(pendingAudioVolumePercent);
     updateSettingsDisplay();
     queueMusicSettingsPreload();
     // 停掉 BGM，讓試聽音樂獨佔
@@ -4653,6 +4682,11 @@ function updateSettingsDisplay() {
         if (leftArrow)  leftArrow.disabled  = idx <= 0;
         if (rightArrow) rightArrow.disabled = idx >= tracks.length - 1;
     }
+
+    const volumeRange = document.getElementById('settings-volume-range') as HTMLInputElement | null;
+    const volumeValue = document.getElementById('settings-volume-value');
+    if (volumeRange) volumeRange.value = String(pendingAudioVolumePercent);
+    if (volumeValue) volumeValue.textContent = `${pendingAudioVolumePercent}%`;
 }
 
 // 主選單按鈕
@@ -4671,6 +4705,7 @@ document.getElementById('settings-lang-btn')!.onclick = () => {
 // 音樂設置：返回（回主選單，放棄變更，恢復BGM）
 document.getElementById('settings-back-btn')!.onclick = () => {
     stopPreview();
+    applyAudioVolume(audioVolumePercent);
     currentBGMFile = '';
     const menuTrack = AUDIO_LIBRARY['menu'][musicSelections['menu']] ?? _NO_TRACK;
     if (menuTrack.url) playBGM(menuTrack.url);
@@ -4680,7 +4715,9 @@ document.getElementById('settings-back-btn')!.onclick = () => {
 // 音樂設置：確認
 document.getElementById('settings-confirm-btn')!.onclick = () => {
     musicSelections = { ...pendingMusicSelections };
+    audioVolumePercent = pendingAudioVolumePercent;
     saveMusicSettings();
+    applyAudioVolume(audioVolumePercent);
     stopPreview();
     currentBGMFile = '';
     const menuTrack = getSelectedTrack('menu');
@@ -4700,6 +4737,13 @@ document.querySelectorAll('.settings-arrow').forEach(btn => {
         const track = tracks[pendingMusicSelections[slot]] ?? _NO_TRACK;
         if (track.url) playPreview(track.url);
     });
+});
+
+document.getElementById('settings-volume-range')!.addEventListener('input', (e) => {
+    const target = e.currentTarget as HTMLInputElement;
+    pendingAudioVolumePercent = clampAudioVolume(Number(target.value));
+    applyAudioVolume(pendingAudioVolumePercent);
+    updateSettingsDisplay();
 });
 
 const DIFFICULTY_LEVELS: BotDifficulty[] = ['easy', 'medium', 'hard'];

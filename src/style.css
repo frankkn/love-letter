@@ -3472,6 +3472,23 @@ body.game-scene-active #mute-btn-global {
   min-width: 0;
 }
 
+.volume-selector {
+  gap: 0.6rem;
+}
+
+.settings-volume-range {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--gold-mid);
+  cursor: pointer;
+}
+
+.settings-volume-value {
+  flex: 0 0 3rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 .settings-arrow {
   flex-shrink: 0;
   background: none;
