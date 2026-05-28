@@ -262,6 +262,13 @@
         <div id="settings-music-view" style="display:none;">
           <div class="settings-rows">
             <div class="settings-row">
+              <span class="settings-label" data-i18n="settings.volume">音量大小</span>
+              <div class="settings-selector volume-selector">
+                <input id="settings-volume-range" class="settings-volume-range" type="range" min="0" max="100" step="1" value="60" aria-label="音量大小">
+                <span class="settings-value settings-volume-value" id="settings-volume-value">60%</span>
+              </div>
+            </div>
+            <div class="settings-row">
               <span class="settings-label" data-i18n="settings.menuMusic">主選單</span>
               <div class="settings-selector">
                 <button class="settings-arrow" data-slot="menu" data-dir="-1" aria-label="上一首">◀</button>
@@ -299,13 +306,6 @@
                 <button class="settings-arrow" data-slot="champion" data-dir="-1" aria-label="上一首">◀</button>
                 <span class="settings-value" id="settings-value-champion"></span>
                 <button class="settings-arrow" data-slot="champion" data-dir="1" aria-label="下一首">▶</button>
-              </div>
-            </div>
-            <div class="settings-row">
-              <span class="settings-label" data-i18n="settings.volume">音量大小</span>
-              <div class="settings-selector volume-selector">
-                <input id="settings-volume-range" class="settings-volume-range" type="range" min="0" max="100" step="1" value="60" aria-label="音量大小">
-                <span class="settings-value settings-volume-value" id="settings-volume-value">60%</span>
               </div>
             </div>
           </div>
