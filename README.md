@@ -234,7 +234,7 @@
 ├── index.html
 ├── package.json
 ├── public/
-│   ├── splash.png
+│   ├── splash.webp
 │   ├── audio/
 │   └── icons/
 ├── src/

@@ -1,14 +1,14 @@
 import './style.css'
 import { t, setLang, getLang, type LangCode, createRulesBodyHTML } from './i18n.js';
 import { Client, type Room, type RoomAvailable } from '@colyseus/sdk';
-import guardImage from './assets/cards/guard.png';
-import priestImage from './assets/cards/priest.png';
-import baronImage from './assets/cards/baron.png';
-import handmaidImage from './assets/cards/handmaid.png';
-import princeImage from './assets/cards/prince.png';
-import kingImage from './assets/cards/king.png';
-import countessImage from './assets/cards/countess.png';
-import princessImage from './assets/cards/princess.png';
+import guardImage from './assets/cards/guard.webp';
+import priestImage from './assets/cards/priest.webp';
+import baronImage from './assets/cards/baron.webp';
+import handmaidImage from './assets/cards/handmaid.webp';
+import princeImage from './assets/cards/prince.webp';
+import kingImage from './assets/cards/king.webp';
+import countessImage from './assets/cards/countess.webp';
+import princessImage from './assets/cards/princess.webp';
 import { GameRoomState } from './server/schema/GameRoomState.js';
 
 // ── Music library: Vite scans these folders at build time ────────────────────
