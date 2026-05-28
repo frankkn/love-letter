@@ -11,28 +11,19 @@ import countessImage from './assets/cards/countess.webp';
 import princessImage from './assets/cards/princess.webp';
 import { GameRoomState } from './server/schema/GameRoomState.js';
 
-// ── Music library: Vite scans these folders at build time ────────────────────
-// Only the Object.keys() (file paths) are used; import functions are never called.
-const _menuGlob     = import.meta.glob('/public/audio/menu/*.mp3');
-const _gameGlob     = import.meta.glob('/public/audio/game/*.mp3');
-const _winnerGlob   = import.meta.glob('/public/audio/winner/*.mp3');
-const _loserGlob    = import.meta.glob('/public/audio/loser/*.mp3');
-const _championGlob = import.meta.glob('/public/audio/champion/*.mp3');
-
 type TrackInfo = { name: string; url: string };
 type MusicSlot = 'menu' | 'game' | 'winner' | 'loser' | 'champion';
 
 const _NO_TRACK: TrackInfo = { name: '(無)', url: '' };
 
 function _buildTrackList(
-    glob: Record<string, unknown>,
+    filenames: string[],
     subfolder: string,
     fallback: TrackInfo
 ): TrackInfo[] {
     const base = import.meta.env.BASE_URL; // '/' dev  '/love-letter/' prod
-    const tracks = Object.keys(glob)
-        .map(path => {
-            const filename = path.split('/').pop()!;
+    const tracks = filenames
+        .map(filename => {
             const name = filename.replace(/\.mp3$/i, '').replace(/[-_]/g, ' ');
             const url = `${base}audio/${subfolder}/${encodeURIComponent(filename)}`;
             return { name, url };
@@ -41,13 +32,39 @@ function _buildTrackList(
     return tracks.length > 0 ? tracks : [fallback];
 }
 
-// Resolved once at module load; re-evaluated by Vite HMR when files change.
+// Keep public audio as static files. Avoid import.meta.glob here because Vite
+// emits duplicate MP3 copies into dist/assets even when only filenames are used.
 const AUDIO_LIBRARY: Record<MusicSlot, TrackInfo[]> = {
-    menu:     _buildTrackList(_menuGlob,     'menu',     _NO_TRACK),
-    game:     _buildTrackList(_gameGlob,     'game',     _NO_TRACK),
-    winner:   _buildTrackList(_winnerGlob,   'winner',   _NO_TRACK),
-    loser:    _buildTrackList(_loserGlob,    'loser',    _NO_TRACK),
-    champion: _buildTrackList(_championGlob, 'champion', _NO_TRACK),
+    menu: _buildTrackList([
+        'Royal Intrigue .mp3',
+        'The Gilded Labyrinth.mp3',
+        "The Sovereign's Veil.mp3",
+        'Velvet Armor.mp3',
+    ], 'menu', _NO_TRACK),
+    game: _buildTrackList([
+        'A Game of Hearts .mp3',
+        'Dealroom Lutestring.mp3',
+        'The Algorithmic Court.mp3',
+        'The Crown of Thorns.mp3',
+    ], 'game', _NO_TRACK),
+    winner: _buildTrackList([
+        'Gilded Trumpets.mp3',
+        'The Dawn of Triumph.mp3',
+        "The Sovereign's Fanfare.mp3",
+        "The Victor's Token.mp3",
+    ], 'winner', _NO_TRACK),
+    loser: _buildTrackList([
+        'Farewell, Chevalier .mp3',
+        'Rosin Grief.mp3',
+        "The Bow's Lament.mp3",
+        'The Last Requiem of Glory.mp3',
+    ], 'loser', _NO_TRACK),
+    champion: _buildTrackList([
+        'Dawn of the Golden Age.mp3',
+        'Love Conquers All .mp3',
+        'The Triumph of Aphrodite.mp3',
+        'Trumpet Crowned Love.mp3',
+    ], 'champion', _NO_TRACK),
 };
 
 // Per-slot selected track index; persisted to localStorage.
