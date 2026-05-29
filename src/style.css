@@ -2026,7 +2026,7 @@ body.game-scene-active #mute-btn-global {
     align-items: stretch;
     gap: 10px;
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .opp-hand-zone {
@@ -2050,7 +2050,7 @@ body.game-scene-active #mute-btn-global {
     border: 1px solid rgba(100,130,200,0.16);
     border-radius: 6px;
     padding: 5px 6px;
-    overflow: hidden;
+    overflow: visible;
   }
 
   /* opponent hand: centered */
