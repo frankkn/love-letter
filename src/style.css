@@ -2317,6 +2317,7 @@ body.game-scene-active #mute-btn-global {
     padding: 4px 10px !important;
     height: auto;
     width: 100%;
+    min-width: 0;
     box-sizing: border-box;
     box-shadow: none !important;
   }
@@ -2331,6 +2332,7 @@ body.game-scene-active #mute-btn-global {
     align-items: center;
     gap: 10px;
     width: 100%;
+    min-width: 0;
   }
 
   body.game-scene-active .stats .game-top-row,
@@ -2341,16 +2343,20 @@ body.game-scene-active #mute-btn-global {
   /* 左側三項：各佔 flex:1 均等分配 */
   body.game-scene-active .stats #turn-indicator {
     order: 1;
-    flex: 1 !important;
+    flex: 1 1 0 !important;
     min-width: 0;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     text-align: center;
   }
   body.game-scene-active .stats #deck-count {
     order: 2;
-    flex: 1 !important;
+    flex: 1 1 0 !important;
     min-width: 0;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     text-align: center;
     padding: 3px 10px;
     border: 1px solid rgba(197, 160, 60, 0.28);
@@ -2361,24 +2367,37 @@ body.game-scene-active #mute-btn-global {
   }
   body.game-scene-active .stats #back-home-btn {
     order: 3;
-    flex: 1 !important;
+    flex: 1 1 0 !important;
     min-width: 0;
     padding: 3px 10px !important;
     width: auto !important;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     text-align: center;
   }
 
   /* 次要按鈕（結果/離場/聊天）：緊接 back 後，有需要時由 JS 顯示 */
-  body.game-scene-active .stats #show-result-btn { order: 4; flex: 0 0 auto; }
-  body.game-scene-active .stats #leave-game-btn  { order: 5; flex: 0 0 auto; }
-  body.game-scene-active .stats #chat-btn        { order: 6; flex: 0 0 auto; }
+  body.game-scene-active .stats #show-result-btn,
+  body.game-scene-active .stats #leave-game-btn,
+  body.game-scene-active .stats #chat-btn {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 9rem;
+    padding: 5px 10px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  body.game-scene-active .stats #show-result-btn { order: 4; }
+  body.game-scene-active .stats #leave-game-btn  { order: 5; }
+  body.game-scene-active .stats #chat-btn        { order: 6; }
 
   /* 右側 icon 群：margin-left:auto 推到最右 */
   body.game-scene-active .stats .game-icon-group {
     order: 99;
     flex: 0 0 auto;
-    margin-left: auto;
+    margin-left: 0;
     gap: 8px;
   }
 
