@@ -2327,11 +2327,15 @@ body.game-scene-active #mute-btn-global {
      此技巧僅影響桌機，手機版 DOM 結構完全不變。 */
   body.game-scene-active .stats {
     display: grid !important;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
     align-items: center;
     gap: 10px;
     width: 100%;
     min-width: 0;
+  }
+  /* 線上模式：多一欄給聊天室 */
+  body.game-scene-active.online-game-active .stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
   }
 
   body.game-scene-active .stats .game-top-row,
@@ -2410,12 +2414,15 @@ body.game-scene-active #mute-btn-global {
     color: #b8d8f0 !important;
   }
 
-  /* 右側 icon 群：margin-left:auto 推到最右 */
+  /* 右側 icon 群：離線第4欄，線上第5欄 */
   body.game-scene-active .stats .game-icon-group {
-    grid-column: 5;
+    grid-column: 4;
     grid-row: 1;
     margin-left: 0;
     gap: 8px;
+  }
+  body.game-scene-active.online-game-active .stats .game-icon-group {
+    grid-column: 5;
   }
 
   /* 桌機版隱藏：出牌統計切換鈕、抽牌（已移至玩家區）、查看紀錄、分隔線、麥克風 */

@@ -1000,6 +1000,9 @@ function render() {
     const micBtn = document.getElementById('mic-btn') as HTMLButtonElement | null;
     if (chatBtn) chatBtn.style.display = isOnlineGameActive() ? 'flex' : 'none';
     if (micBtn) micBtn.style.display = isOnlineGameActive() ? 'flex' : 'none';
+
+    // topbar grid 欄數：線上4欄（含聊天室），離線3欄
+    document.body.classList.toggle('online-game-active', isOnlineGameActive());
 }
 
 function createCardUI(card: Card, isPlayable: boolean): HTMLElement {
