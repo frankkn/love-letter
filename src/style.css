@@ -2115,9 +2115,18 @@ body.game-scene-active #mute-btn-global {
     font-size: 0.7rem;
   }
 
+  /* player discard: cards top-aligned, larger gap, hint = 60×1.3=78px */
+  #game-scene[data-opponent-count="3"] #player-discard {
+    gap: 12px;
+    align-content: flex-start;
+    align-items: flex-start;
+  }
   #game-scene[data-opponent-count="3"] #player-discard .card-wrapper      { width: 60px; }
   #game-scene[data-opponent-count="3"] #player-discard .card               { width: 60px; height: 84px; }
-  #game-scene[data-opponent-count="3"] #player-discard .card-action-hints  { width: 110px; margin-left: -25px; }
+  #game-scene[data-opponent-count="3"] #player-discard .card-action-hints  {
+    width: 78px;
+    margin-left: -9px; /* center 78px hint under 60px card: (60-78)/2 */
+  }
 
   #game-scene[data-opponent-count="3"] .opp-hand-zone {
     width: calc(60px * 2 + 8px + 8px * 2 + 2px); /* 146px */
@@ -2125,11 +2134,17 @@ body.game-scene-active #mute-btn-global {
   #game-scene[data-opponent-count="3"] .opponent-area .hand-container .card-wrapper { width: 60px; }
   #game-scene[data-opponent-count="3"] .opponent-area .hand-container .card         { width: 60px; height: 84px; }
 
+  /* opponent discard: cards top-aligned, larger gap, hint = 60×1.3=78px */
+  #game-scene[data-opponent-count="3"] .opponent-area .discard-container {
+    gap: 12px;
+    align-content: flex-start;
+    align-items: flex-start;
+  }
   #game-scene[data-opponent-count="3"] .opponent-area .discard-container .card-wrapper      { width: 60px; }
   #game-scene[data-opponent-count="3"] .opponent-area .discard-container .card              { width: 60px; height: 84px; }
   #game-scene[data-opponent-count="3"] .opponent-area .discard-container .card-action-hints {
-    width: 110px;
-    margin-left: -25px; /* center 110px hint under 60px card */
+    width: 78px;
+    margin-left: -9px; /* center 78px hint under 60px card: (60-78)/2 */
   }
 
   /* card-value badge + card-name: 縮至約 75% 配合 60×84px 卡牌 */
