@@ -2252,6 +2252,18 @@ body.game-scene-active #mute-btn-global {
     pointer-events: none;
   }
 
+  /* Protected panels share ::before with the shimmer, so restore the full blue frame. */
+  body.game-scene-active #game-scene .protected::before {
+    inset: 0;
+    height: auto;
+    background: none;
+    border: 2px solid #3498db;
+    border-radius: inherit;
+    z-index: 30;
+    box-sizing: border-box;
+    pointer-events: none;
+  }
+
   /* active-turn panels: override shimmer so the yellow border renders correctly
      (same specificity as shimmer rule but placed later → wins for conflicting props) */
   body.game-scene-active #game-scene .active-turn::before {
