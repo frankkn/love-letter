@@ -2810,6 +2810,14 @@ function cloneCardForOnlineSync(card: Card): Card {
     };
 }
 
+// Produce a face-down placeholder for a bot's hand card.
+// Non-host clients never need the actual card type during play — bots are
+// always rendered as "?" until the round ends. Sending real types would leak
+// bot hands to anyone with browser dev-tools open.
+function hiddenBotCard(card: Card): Card {
+    return { id: card.id, type: 0 as CardType, name: '', value: 0, description: '' };
+}
+
 function cloneOnlinePlayer(player: Player): Player {
     return {
         ...player,
@@ -2857,7 +2865,14 @@ function createOnlineGameStateData(): OnlineGameStateData {
     return {
         deck: [...state.deck],
         burnedCard: state.burnedCard,
-        players: state.players.map(cloneOnlinePlayer),
+        // Mask bot hand types during active play. Non-host clients render bots
+        // as "?" and never need the real card type. At game-over the host sends
+        // revealed hands, so the mask is lifted when isGameOver is true.
+        players: state.players.map(player =>
+            player.isBot && !state.isGameOver
+                ? { ...cloneOnlinePlayer(player), hand: player.hand.map(hiddenBotCard) }
+                : cloneOnlinePlayer(player)
+        ),
         currentTurnPlayerId: state.currentTurnPlayerId,
         isGameOver: state.isGameOver,
         winner: state.winner ? cloneOnlinePlayer(state.winner) : null,

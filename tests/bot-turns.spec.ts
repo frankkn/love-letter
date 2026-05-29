@@ -7,13 +7,20 @@ import { expect, type Page, test } from '@playwright/test';
 
 const GAME_TIMEOUT = 90_000; // 遊戲最長允許 90 秒
 
-/** 啟動本機模式並選擇電腦數量 */
+/** 啟動本機模式並選擇電腦數量（新版遊戲設定畫面，預設 2 台） */
 async function startLocalGame(page: Page, botCount: 1 | 2 | 3) {
     await page.goto('/');
     await page.evaluate(() => document.getElementById('splash-screen')?.remove());
     await page.locator('#start-game-btn').click();
     await page.locator('#local-mode-btn').click();
-    await page.locator(`.count-btn[data-count="${botCount}"]`).click();
+    await expect(page.locator('#bot-settings-select')).toBeVisible({ timeout: 3000 });
+    // 預設人數為 2；調整至目標數量
+    const delta = botCount - 2;
+    const arrowId = delta > 0 ? '#botcount-arrow-right' : '#botcount-arrow-left';
+    for (let i = 0; i < Math.abs(delta); i++) {
+        await page.locator(arrowId).click();
+    }
+    await page.locator('#bot-settings-start-btn').click();
     await expect(page.locator('#game-scene')).toBeVisible({ timeout: 5000 });
 }
 

@@ -179,7 +179,11 @@ export class LoveLetterRoom extends Room<{ state: GameRoomState }> {
             }
 
             this.latestGameState = data;
-            this.broadcast("sync_game_state", data);
+            // Exclude the sender: the host owns authoritative state and does not
+            // need its own echo. Broadcasting back to the host would needlessly
+            // overwrite aiMemory/aiExcludedGuesses (always reset to {} in
+            // applyOnlineGameState) after every sync.
+            this.broadcast("sync_game_state", data, { except: client });
         });
 
         this.onMessage("request_game_data", client => {
