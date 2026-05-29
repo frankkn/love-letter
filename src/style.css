@@ -2387,7 +2387,9 @@ body.game-scene-active #mute-btn-global {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    text-align: center;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
     border: 1px solid rgba(197, 160, 60, 0.38) !important;
     border-radius: 6px;
   }
