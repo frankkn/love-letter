@@ -1,4 +1,5 @@
 import { LobbyRoom, Server } from 'colyseus';
+import { WebSocketTransport } from '@colyseus/ws-transport';
 import type { NextFunction, Request, Response } from 'express';
 import { LoveLetterRoom } from './rooms/LoveLetterRoom.js';
 
@@ -7,6 +8,14 @@ const host = process.env.HOST ?? '0.0.0.0';
 const allowedOrigin = process.env.CORS_ORIGIN ?? '*';
 
 const gameServer = new Server({
+    // The default WebSocket transport caps inbound messages at 4KB (maxPayload),
+    // which the host's full-state `sync_game_state` can exceed in a late 4-player
+    // round — the server then closes that client's socket (code 1009), surfacing
+    // as an "occasional" disconnect. Raise the cap to 1MB so full-state syncs
+    // always fit.
+    transport: new WebSocketTransport({
+        maxPayload: 1024 * 1024 // 1MB (default is 4KB)
+    }),
     express: app => {
         app.use((req: Request, res: Response, next: NextFunction) => {
             res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
