@@ -432,6 +432,7 @@ function resetLocalClientState() {
     isApplyingOnlineState = false;
     endGameReason = '';
     savedReconnectionToken = null;
+    sessionStorage.removeItem('ll_reconnect_token');
     forfeitedOnlinePlayerIds = new Set();
     for (const timer of disconnectionTimers.values()) window.clearTimeout(timer);
     disconnectionTimers = new Map();
@@ -3985,6 +3986,9 @@ function bindGameRoom(room: Room<unknown, SyncedRoomState>, isReconnect = false)
     activeGameRoom = room;
     // Save the token immediately so onLeave can use it even after the socket closes.
     savedReconnectionToken = room.reconnectionToken ?? null;
+    if (savedReconnectionToken) {
+        sessionStorage.setItem('ll_reconnect_token', savedReconnectionToken);
+    }
 
     if (isReconnect) {
         // On reconnect we preserve the existing game state but force re-init so
@@ -4096,8 +4100,9 @@ function bindGameRoom(room: Room<unknown, SyncedRoomState>, isReconnect = false)
             updateMicButtonState();
         }
 
-        const token = savedReconnectionToken;
+        const token = savedReconnectionToken ?? sessionStorage.getItem('ll_reconnect_token');
         savedReconnectionToken = null;
+        sessionStorage.removeItem('ll_reconnect_token');
         const wasInOnlineGame = onlineGameInitialized;
         activeGameRoom = null;
         currentRoomWaitState = null;
@@ -4214,9 +4219,9 @@ function clearReconnectCountdown() {
     }
 }
 
-/** Show the disconnection modal for the local player with an 18 s countdown. */
+/** Show the disconnection modal for the local player with a 58 s countdown. */
 function showReconnectModal(token: string) {
-    let secondsLeft = 18;
+    let secondsLeft = 58;
 
     const updateBody = () => {
         const bodyEl = document.getElementById('modal-body');
@@ -4267,7 +4272,7 @@ async function attemptReconnect(token: string) {
     try {
         const room = await withTimeout(
             colyseusClient.reconnect<SyncedRoomState>(token, GameRoomState),
-            10_000,
+            20_000,
             'Reconnection timed out.'
         );
         closeModal();
@@ -5334,6 +5339,15 @@ drawBtnDesktop?.addEventListener('click', () => drawCard(localPlayerId));
 applyStaticTranslations();
 initGame(1); // 預設進來時背景跑一個 (雖然會被 menu 蓋住)
 showScene('main-menu');
+
+// 頁面重載後若有未使用的重連 token，自動提示玩家嘗試重連
+{
+    const storedToken = sessionStorage.getItem('ll_reconnect_token');
+    if (storedToken) {
+        sessionStorage.removeItem('ll_reconnect_token');
+        showReconnectModal(storedToken);
+    }
+}
 
 /* ── Particle System ─────────────────────────────────────────────────── */
 (function initParticles() {

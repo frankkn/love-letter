@@ -303,7 +303,7 @@ export class LoveLetterRoom extends Room<{ state: GameRoomState }> {
             }
 
             try {
-                await this.allowReconnection(client, 20);
+                await this.allowReconnection(client, 60);
                 const reconnectedPlayer = this.state.players.get(client.sessionId);
                 if (reconnectedPlayer) {
                     reconnectedPlayer.isConnected = true;
