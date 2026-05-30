@@ -2430,10 +2430,11 @@ body.game-scene-active #mute-btn-global {
     grid-column: 5;
   }
 
-  /* 桌機版隱藏：出牌統計切換鈕、抽牌（已移至玩家區）、查看紀錄、分隔線、麥克風 */
+  /* 桌機版隱藏：出牌統計切換鈕、抽牌（已移至玩家區）、查看紀錄、表情輪盤、分隔線 */
   body.game-scene-active .stats #stats-toggle-btn { display: none !important; }
   body.game-scene-active .stats #draw-btn         { display: none !important; }
   body.game-scene-active .stats #show-log-btn     { display: none !important; }
+  body.game-scene-active .stats #emoji-btn        { display: none !important; }
   body.game-scene-active .stats .top-sep          { display: none !important; }
 
   /* ── 所有 area 面板預設 overflow visible（卡牌 hover 效果需要）── */
@@ -2664,7 +2665,7 @@ body.game-scene-active #mute-btn-global {
     margin-bottom: 0;
   }
 
-  /* ── Row 1: game-top-row（icon 群已移至 game-action-row）── */
+  /* ── Row 1: game-top-row ── */
   .game-top-row {
     flex: 1 1 100%;
     display: grid;
@@ -2672,6 +2673,19 @@ body.game-scene-active #mute-btn-global {
     align-items: center;
     min-height: 32px;
     gap: 0;
+  }
+
+  /* 線上模式：頂列改 4 等分（第 4 格放 icon 群）*/
+  body.online-game-active .game-top-row {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  /* icon 群移至頂列時：填滿格子並置中 */
+  .game-top-row .game-icon-group {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
   }
 
   #turn-indicator {

@@ -1001,6 +1001,22 @@ function render() {
     if (chatBtn) chatBtn.style.display = isOnlineGameActive() ? 'flex' : 'none';
     if (micBtn) micBtn.style.display = isOnlineGameActive() ? 'flex' : 'none';
 
+    // 表情輪盤：僅多人連線進行中顯示
+    const emojiBtn = document.getElementById('emoji-btn') as HTMLButtonElement | null;
+    if (emojiBtn) emojiBtn.style.display = onlineActive ? 'flex' : 'none';
+
+    // 麥克風/喇叭 icon 群：線上移至頂列，離線留在操作列
+    const iconGroup = document.querySelector('.game-icon-group') as HTMLElement | null;
+    const gameTopRowEl = document.querySelector('.game-top-row') as HTMLElement | null;
+    const gameActionRowEl = document.querySelector('.game-action-row') as HTMLElement | null;
+    if (iconGroup && gameTopRowEl && gameActionRowEl) {
+        if (isOnlineGameActive() && iconGroup.parentElement !== gameTopRowEl) {
+            gameTopRowEl.appendChild(iconGroup);
+        } else if (!isOnlineGameActive() && iconGroup.parentElement !== gameActionRowEl) {
+            gameActionRowEl.appendChild(iconGroup);
+        }
+    }
+
     // topbar grid 欄數：線上4欄（含聊天室），離線3欄
     document.body.classList.toggle('online-game-active', isOnlineGameActive());
 }
